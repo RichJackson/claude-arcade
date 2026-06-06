@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Space Warriors</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #0b0820;
+    overflow: hidden;
+    font-family: "Comic Sans MS", "Comic Sans", "Marker Felt", "Segoe Print", cursive, sans-serif;
+    color: #fff;
+    cursor: default;
+  }
+  #game {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle at 50% 35%, #1b1450 0%, #0b0820 70%, #050313 100%);
+    touch-action: none;
+  }
+  #footer {
+    position: fixed;
+    bottom: 8px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 13px;
+    color: #9d97d6;
+    pointer-events: none;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 2px #000;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="footer">Arrows / WASD = move &nbsp;·&nbsp; Space = shoot / use room &nbsp;·&nbsp; B = fly home to ship &nbsp;·&nbsp; P = pause &nbsp;·&nbsp; M = mute</div>
+<script>
+"use strict";
+/* =========================================================================
+   SPACE WARRIORS  — a single-file browser game
+   Pick a character, board the ship, fly around, shoot monsters, explore
+   planets, and find presents... but not all gifts are good!
+   ========================================================================= */
+
+/* ----------------------------- Config ----------------------------------- */
+const CFG = {
+  WORLD: 6000,            // world is a big square; ship flies around inside it
+  SHIP_THRUST: 0.28,
+  SHIP_TURN: 0.072,
+  SHIP_FRICTION: 0.985,
+  SHIP_MAXSPD: 7.2,
+  SHIP_RADIUS: 20,
+  BULLET_SPD: 11,
+  BULLET_LIFE: 70,
+  FIRE_RATE: 13,          // frames between shots (lower = faster)
+  MONSTER_MAX: 14,
+  MONSTER_SPAWN: 95,      // frames between spawns (decreases as score grows)
+  PRESENT_MAX: 6,
+  PRESENT_SPAWN: 220,
+  PLANET_COUNT: 18,
+  INVULN: 70,             // i-frames after taking a hit
+};
+
+// Fun names for the planets you discover (need at least PLANET_COUNT).
+const PLANET_NAMES = [
+  "Zorp", "Bloop", "Gloob", "Quazar", "Fluffo", "Nibbon", "Wobblor", "Plonk",
+  "Snaxx", "Glimmer", "Krunk", "Pog", "Zibby", "Moonpie", "Splat", "Twizzle",
+  "Goobar", "Frostia", "Lumpo", "Drizzle", "Bizzle", "Nooble", "Zappo", "Muncho",
+];
+
+// Cooking: ingredients hide inside some presents; carry them to the Kitchen
+// and cook them into a meal. The dish (and its bonus) depends on what you put
+// in — the most-used ingredient decides the dish, and special ingredients add
+// their own boon (peppers = rapid fire, mushrooms = shield, eggs = speed).
+const INGREDIENTS = [
+  { key: "tomato",   name: "Tomato",    emoji: "🍅", color: "#ff5d5d", dish: "Tomato Soup",   boon: "+hearts" },
+  { key: "cheese",   name: "Cheese",    emoji: "🧀", color: "#ffd23f", dish: "Cheesy Pizza",  boon: "+hearts" },
+  { key: "fish",     name: "Star Fish", emoji: "🐟", color: "#7be8ff", dish: "Star Sushi",    boon: "++hearts" },
+  { key: "mushroom", name: "Mushroom",  emoji: "🍄", color: "#e2a3b0", dish: "Mushroom Stew", boon: "Shield 🛡" },
+  { key: "pepper",   name: "Pepper",    emoji: "🌶", color: "#3fd07a", dish: "Spicy Curry",   boon: "Rapid Fire ⚡" },
+  { key: "egg",      name: "Space Egg", emoji: "🥚", color: "#fff0d6", dish: "Big Omelette",  boon: "Speed 💨" },
+];
+
+const COLORS = {
+  hullPink:  "#ff7bc6",
+  hullDark:  "#c23e8e",
+  flame:     "#ffd166",
+  bullet:    "#fff27a",
+  gem:       "#3fd07a",
+  gemDark:   "#1f8a4c",
+  blob:      "#ff79b0",
+  blobDark:  "#c23e7e",
+  good:      "#8bf28b",
+  bad:       "#ff6b6b",
+  star:      "#ffffff",
+  planets:   ["#3a3a44", "#8d8d99", "#4caf6a", "#9c6b3f", "#6c63ff", "#e8a13a",
+              "#e85a8a", "#3ab7c2", "#b85ad6", "#d6c23a", "#5a8ae8", "#7acb5a",
+              "#cf6a3a", "#9aa7b5", "#d63a6a", "#46d6a0"],
+};
+
+/* ----------------------------- Canvas ------------------------------------ */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let VW = 0, VH = 0;        // viewport (canvas) size in CSS pixels
+let DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  VW = window.innerWidth;
+  VH = window.innerHeight;
+  canvas.width = Math.floor(VW * DPR);
+  canvas.height = Math.floor(VH * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ----------------------------- Utilities -------------------------------- */
+const TAU = Math.PI * 2;
+const rand = (a, b) => a + Math.random() * (b - a);
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+let _idCounter = 1;
+const nextId = () => _idCounter++;
+
+/* Deterministic per-seed jitter so doodles look hand-drawn but stay stable. */
+function wobble(seed) {
+  const s = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return (s - Math.floor(s)) - 0.5; // ~[-0.5, 0.5]
+}
+
+/* ----------------------------- Doodle drawing ---------------------------- */
+/* Wobbly hand-drawn circle. opts: {fill, lineWidth, jitter, seed, passes} */
+function doodleCircle(x, y, r, color, opts = {}) {
+  const seed = opts.seed != null ? opts.seed : (x * 0.7 + y * 1.3 + r);
+  const jitter = opts.jitter != null ? opts.jitter : r * 0.09;
+  const steps = 22;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  if (opts.fill) {
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const a = (i / steps) * TAU;
+      const rr = r + wobble(seed + i * 3.3) * jitter;
+      const px = x + Math.cos(a) * rr;
+      const py = y + Math.sin(a) * rr;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = opts.fill;
+    ctx.fill();
+  }
+  const passes = opts.passes || 1;
+  for (let p = 0; p < passes; p++) {
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const a = (i / steps) * TAU;
+      const rr = r + wobble(seed + i * 3.3 + p * 17.1) * jitter;
+      const px = x + Math.cos(a) * rr;
+      const py = y + Math.sin(a) * rr;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = opts.lineWidth || 3;
+    ctx.stroke();
+  }
+}
+
+/* Wobbly polygon from array of [x,y] points (already in world->screen space). */
+function doodlePoly(points, color, opts = {}) {
+  const seed = opts.seed != null ? opts.seed : 7;
+  const jitter = opts.jitter != null ? opts.jitter : 2.2;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  const build = (pp) => {
+    ctx.beginPath();
+    for (let i = 0; i < points.length; i++) {
+      const px = points[i][0] + wobble(seed + i * 5.1 + pp * 9.7) * jitter;
+      const py = points[i][1] + wobble(seed + i * 7.7 + pp * 3.3) * jitter;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  };
+  if (opts.fill) { build(99); ctx.fillStyle = opts.fill; ctx.fill(); }
+  build(0);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = opts.lineWidth || 3;
+  ctx.stroke();
+}
+
+function doodleLine(x1, y1, x2, y2, color, lw = 3, seed = 1) {
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.beginPath();
+  const segs = 4;
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs;
+    const px = x1 + (x2 - x1) * t + wobble(seed + i * 2.1) * 2.4;
+    const py = y1 + (y2 - y1) * t + wobble(seed + i * 4.7) * 2.4;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.stroke();
+}
+
+/* Playful title-ish text with a slight wobble/rotation. */
+function doodleText(text, x, y, size, color, opts = {}) {
+  ctx.save();
+  ctx.font = `${opts.weight || "bold"} ${size}px "Comic Sans MS", "Marker Felt", cursive, sans-serif`;
+  ctx.textAlign = opts.align || "center";
+  ctx.textBaseline = opts.baseline || "middle";
+  if (opts.shadow !== false) {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillText(text, x + 3, y + 3);
+  }
+  if (opts.stroke) {
+    ctx.lineWidth = opts.strokeWidth || 5;
+    ctx.strokeStyle = opts.stroke;
+    ctx.lineJoin = "round";
+    ctx.strokeText(text, x, y);
+  }
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+/* ----------------------------- Audio (WebAudio beeps) -------------------- */
+const Sound = {
+  ctx: null,
+  muted: false,
+  ensure() {
+    if (!this.ctx) {
+      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { this.ctx = null; }
+    }
+    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+  },
+  blip(freq, dur, type = "square", vol = 0.08, slideTo = null) {
+    if (this.muted || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (slideTo != null) osc.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), t + dur);
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain).connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  },
+  shoot()    { this.blip(720, 0.10, "square", 0.05, 320); },
+  hit()      { this.blip(180, 0.12, "sawtooth", 0.07, 90); },
+  explode()  { this.blip(120, 0.22, "sawtooth", 0.09, 50); },
+  good()     { this.blip(523, 0.10, "triangle", 0.09); setTimeout(() => this.blip(784, 0.14, "triangle", 0.09), 90); },
+  bad()      { this.blip(160, 0.30, "square", 0.10, 70); },
+  explore()  { this.blip(440, 0.10, "sine", 0.08); setTimeout(() => this.blip(660, 0.12, "sine", 0.08), 80); },
+  ouch()     { this.blip(220, 0.18, "square", 0.10, 110); },
+};
+
+/* ----------------------------- Input ------------------------------------ */
+const keys = {};
+const pressed = {};   // single-press latch (consumed by states)
+window.addEventListener("keydown", (e) => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (!keys[k]) pressed[k] = true;
+  keys[k] = true;
+  // prevent page scroll on arrows/space
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","Spacebar"].includes(e.key)) e.preventDefault();
+  Sound.ensure();
+  if (k === "m") { Sound.muted = !Sound.muted; }
+});
+window.addEventListener("keydown", () => {}, { passive: false });
+window.addEventListener("keyup", (e) => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  keys[k] = false;
+});
+canvas.addEventListener("mousedown", () => { Sound.ensure(); pressed["Enter"] = true; });
+function consume(key) { if (pressed[key]) { pressed[key] = false; return true; } return false; }
+function clearPressed() { for (const k in pressed) pressed[k] = false; }
+
+/* ----------------------------- Characters -------------------------------- */
+const CHARACTERS = [
+  { name: "Jake", color: "#ffd23f", face: "happy",  desc: "Balanced", thrust: 1.0, fire: 1.0, hp: 5, speed: 1.0 },
+  { name: "Mund", color: "#9b6bff", face: "cool",   desc: "Speedy",   thrust: 1.25, fire: 1.05, hp: 4, speed: 1.18 },
+  { name: "Bud",  color: "#ff5d5d", face: "tough",  desc: "Tanky",    thrust: 0.9, fire: 1.0, hp: 7, speed: 0.9 },
+  { name: "Pip",  color: "#4dd2ff", face: "silly",  desc: "Rapid",    thrust: 1.0, fire: 0.62, hp: 4, speed: 1.05 },
+];
+
+function drawCharFace(x, y, r, ch, t) {
+  // body
+  doodleCircle(x, y, r, "#2b2350", { fill: ch.color, lineWidth: Math.max(2, r * 0.13), seed: r });
+  // eyes
+  const ex = r * 0.38, ey = -r * 0.12, er = r * 0.16;
+  const blink = (Math.sin(t * 0.06 + r) > 0.96) ? 0.2 : 1;
+  doodleCircle(x - ex, y + ey, er, "#1a1430", { fill: "#fff", lineWidth: 2, seed: r + 1 });
+  doodleCircle(x + ex, y + ey, er, "#1a1430", { fill: "#fff", lineWidth: 2, seed: r + 2 });
+  ctx.fillStyle = "#1a1430";
+  ctx.beginPath(); ctx.ellipse(x - ex, y + ey, er * 0.5, er * 0.5 * blink, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x + ex, y + ey, er * 0.5, er * 0.5 * blink, 0, 0, TAU); ctx.fill();
+  // mouth varies by face
+  ctx.strokeStyle = "#1a1430"; ctx.lineWidth = Math.max(2, r * 0.1); ctx.lineCap = "round";
+  ctx.beginPath();
+  const my = y + r * 0.34;
+  if (ch.face === "happy" || ch.face === "silly") {
+    ctx.arc(x, my - r * 0.1, r * 0.32, 0.15 * Math.PI, 0.85 * Math.PI);
+  } else if (ch.face === "cool") {
+    ctx.moveTo(x - r * 0.28, my); ctx.lineTo(x + r * 0.28, my);
+  } else { // tough
+    ctx.arc(x, my + r * 0.2, r * 0.3, 1.15 * Math.PI, 1.85 * Math.PI);
+  }
+  ctx.stroke();
+  if (ch.face === "silly") { // tongue
+    ctx.fillStyle = "#ff7bc6";
+    ctx.beginPath(); ctx.ellipse(x + r * 0.1, my + r * 0.05, r * 0.12, r * 0.16, 0, 0, TAU); ctx.fill();
+  }
+}
+
+/* ----------------------------- Game State -------------------------------- */
+const STATE = { TITLE: "title", SELECT: "select", SHIP: "ship", PLAY: "play", PAUSE: "pause", GAMEOVER: "gameover", WIN: "win" };
+let state = STATE.TITLE;
+let pauseFrom = STATE.PLAY; // which state to resume to after a pause
+let selIndex = 0;
+let frame = 0;
+let screenTint = null; // {color, life, max}
+
+const game = {
+  ship: null,
+  bullets: [],
+  monsters: [],
+  presents: [],
+  planets: [],
+  particles: [],
+  floats: [],
+  stars: [],
+  cam: { x: 0, y: 0 },
+  score: 0,
+  planetsExplored: 0,
+  monsterTimer: CFG.MONSTER_SPAWN,
+  presentTimer: 80,
+  lastPresentMsg: "",
+  // ship interior ("walk around the rooms") state
+  interior: { x: 0, y: 0, vx: 0, vy: 0, facing: 1, step: 0 },
+  interiorFloats: [],
+  healTimer: 90,
+  hasFlown: false,        // becomes true once you've launched at least once
+  // kitchen + room activities
+  pantry: [],             // ingredient keys you've collected from presents
+  cooking: null,          // { ticks, total, count, meal } while a meal cooks
+  targetHits: 0,          // progress in the Shooting Room target practice
+};
+
+/* ----------------------------- Ship interior layout ---------------------- */
+/* Top-down cutaway of the spaceship, matching the concept art rooms.
+   Coordinates are local (0,0)-(SHIP_W,SHIP_H); centered on screen at draw. */
+const SHIP_W = 760, SHIP_H = 540;
+const SHIP_ROOMS = [
+  { name: "Bedroom",       x: 18,  y: 18,  w: 354, h: 150, color: "#3a2d5e", kind: "bed" },
+  { name: "Driver Room",   x: 388, y: 18,  w: 354, h: 150, color: "#2d4a5e", kind: "drive" },
+  { name: "Shooting Room", x: 18,  y: 188, w: 724, h: 150, color: "#5e2d3a", kind: "shoot" },
+  { name: "Kitchen",       x: 18,  y: 358, w: 354, h: 164, color: "#34543a", kind: "kitchen" },
+  { name: "Toilet",        x: 388, y: 358, w: 354, h: 164, color: "#5e552d", kind: "toilet" },
+];
+const AVATAR_R = 16;
+function roomAt(lx, ly) {
+  for (const r of SHIP_ROOMS) {
+    if (lx >= r.x && lx <= r.x + r.w && ly >= r.y && ly <= r.y + r.h) return r;
+  }
+  return null;
+}
+
+/* ----------------------------- Starfield --------------------------------- */
+function makeStars() {
+  game.stars = [];
+  for (let i = 0; i < 260; i++) {
+    game.stars.push({
+      x: rand(0, CFG.WORLD), y: rand(0, CFG.WORLD),
+      r: rand(0.6, 2.2), depth: rand(0.3, 1), tw: rand(0, TAU),
+    });
+  }
+}
+
+/* ----------------------------- Setup play -------------------------------- */
+function startGame(charIdx) {
+  const ch = CHARACTERS[charIdx];
+  _idCounter = 1;
+  game.bullets = []; game.monsters = []; game.presents = [];
+  game.particles = []; game.floats = [];
+  game.score = 0; game.planetsExplored = 0;
+  game.monsterTimer = 60; game.presentTimer = 120;
+  game.ship = {
+    id: nextId(),
+    x: CFG.WORLD / 2, y: CFG.WORLD / 2,
+    vx: 0, vy: 0, angle: -Math.PI / 2,
+    radius: CFG.SHIP_RADIUS,
+    hp: ch.hp, maxhp: ch.hp,
+    char: ch,
+    fireCd: 0,
+    invuln: 0,
+    powerups: {},     // name -> remaining frames
+  };
+  game.cam.x = game.ship.x; game.cam.y = game.ship.y;
+  makeStars();
+  makePlanets();
+  // start inside the ship — walk to the Driver Room to blast off
+  game.interior.x = SHIP_W / 2;
+  game.interior.y = SHIP_H / 2;
+  game.interior.vx = 0; game.interior.vy = 0;
+  game.interiorFloats = [];
+  game.healTimer = 90;
+  game.hasFlown = false;
+  game.pantry = [];
+  game.cooking = null;
+  game.targetHits = 0;
+  state = STATE.SHIP;
+  clearPressed();
+}
+
+function makePlanets() {
+  game.planets = [];
+  // shuffle names so each playthrough discovers planets in a fresh order
+  const names = PLANET_NAMES.slice();
+  for (let i = names.length - 1; i > 0; i--) { const j = randInt(0, i); [names[i], names[j]] = [names[j], names[i]]; }
+  const margin = 260;
+  let attempts = 0;
+  while (game.planets.length < CFG.PLANET_COUNT && attempts < 1500) {
+    attempts++;
+    const x = rand(margin, CFG.WORLD - margin);
+    const y = rand(margin, CFG.WORLD - margin);
+    // keep away from spawn center and from each other
+    if (dist2(x, y, CFG.WORLD / 2, CFG.WORLD / 2) < 480 * 480) continue;
+    let ok = true;
+    for (const p of game.planets) if (dist2(x, y, p.x, p.y) < 540 * 540) { ok = false; break; }
+    if (!ok) continue;
+    const idx = game.planets.length;
+    game.planets.push({
+      id: nextId(), x, y,
+      r: rand(48, 105),
+      color: COLORS.planets[idx % COLORS.planets.length],
+      name: names[idx % names.length],
+      visited: false,
+      ringSeed: rand(0, 100),
+      hasRing: Math.random() < 0.4,
+    });
+  }
+}
+
+/* ----------------------------- Spawning ---------------------------------- */
+function spawnMonster(type, x, y) {
+  if (game.monsters.length >= CFG.MONSTER_MAX + 6) return;
+  if (x == null) {
+    // spawn at edge of world-ish, away from ship
+    let tries = 0;
+    do {
+      x = rand(0, CFG.WORLD); y = rand(0, CFG.WORLD);
+      tries++;
+    } while (dist2(x, y, game.ship.x, game.ship.y) < 450 * 450 && tries < 20);
+  }
+  type = type || (Math.random() < 0.55 ? "gem" : "blob");
+  const isGem = type === "gem";
+  game.monsters.push({
+    id: nextId(), type, x, y,
+    vx: rand(-1, 1), vy: rand(-1, 1),
+    r: isGem ? rand(16, 24) : rand(18, 28),
+    hp: isGem ? 1 : 2,
+    spin: rand(0, TAU), spinV: rand(-0.04, 0.04),
+    wobblePhase: rand(0, TAU),
+    score: isGem ? 10 : 20,
+    speed: isGem ? rand(0.5, 1.2) : rand(0.9, 1.7),
+  });
+}
+
+function spawnPresent(x, y) {
+  if (game.presents.length >= CFG.PRESENT_MAX + 4) return;
+  if (x == null) {
+    let tries = 0;
+    do { x = rand(150, CFG.WORLD - 150); y = rand(150, CFG.WORLD - 150); tries++; }
+    while (dist2(x, y, game.ship.x, game.ship.y) < 350 * 350 && tries < 20);
+  }
+  game.presents.push({
+    id: nextId(), x, y,
+    r: 18,
+    color: pick(["#ff5d5d", "#5d9bff", "#ffd23f", "#7bff9b", "#ff7bc6"]),
+    bob: rand(0, TAU),
+  });
+}
+
+/* ----------------------------- Particles / floats ------------------------ */
+function burst(x, y, color, n = 10, spd = 4) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU);
+    const s = rand(0.5, spd);
+    game.particles.push({
+      x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life: randInt(18, 36), max: 36, color, r: rand(2, 5),
+    });
+  }
+}
+function floatText(x, y, text, color) {
+  game.floats.push({ x, y, text, color, life: 70, max: 70 });
+}
+
+/* ----------------------------- Present effects --------------------------- */
+function addIngredient() {
+  const ing = pick(INGREDIENTS);
+  game.pantry.push(ing.key);
+  if (game.pantry.length > 12) game.pantry.shift(); // keep the pantry tidy
+  return "Got " + ing.name + " " + ing.emoji;
+}
+
+const GOOD_EFFECTS = [
+  // food shows up often so you can gather ingredients and cook
+  { msg: "Yummy ingredient!", apply: () => addIngredient() },
+  { msg: "Yummy ingredient!", apply: () => addIngredient() },
+  { msg: "+2 Health!", apply: (s) => { s.hp = Math.min(s.maxhp, s.hp + 2); } },
+  { msg: "Rapid Fire!", apply: (s) => { s.powerups.rapid = 540; } },
+  { msg: "Shield Up!", apply: (s) => { s.powerups.shield = 600; } },
+  { msg: "Speed Boost!", apply: (s) => { s.powerups.speed = 540; } },
+  { msg: "+100 Points!", apply: () => { game.score += 100; } },
+];
+const BAD_EFFECTS = [
+  { msg: "Ouch! -1 HP", apply: (s) => { damageShip(1, true); } },
+  { msg: "Controls Reversed!", apply: (s) => { s.powerups.reversed = 360; } },
+  { msg: "Stuck in goo!", apply: (s) => { s.powerups.slow = 360; } },
+  { msg: "Monster ambush!", apply: (s) => { for (let i = 0; i < 3; i++) spawnMonster(null, s.x + rand(-120,120), s.y + rand(-120,120)); } },
+];
+
+function openPresent(p) {
+  const good = Math.random() < 0.62;
+  const fx = good ? pick(GOOD_EFFECTS) : pick(BAD_EFFECTS);
+  const ret = fx.apply(game.ship);   // effects may return a custom message
+  floatText(p.x, p.y - 10, ret || fx.msg, good ? COLORS.good : COLORS.bad);
+  burst(p.x, p.y, p.color, 14, 5);
+  screenTint = { color: good ? "rgba(120,255,120,0.18)" : "rgba(255,70,70,0.20)", life: 22, max: 22 };
+  good ? Sound.good() : Sound.bad();
+}
+
+/* ----------------------------- Damage ------------------------------------ */
+function damageShip(amount, ignoreInvuln = false) {
+  const s = game.ship;
+  if (!ignoreInvuln && (s.invuln > 0 || s.powerups.shield > 0)) {
+    if (s.powerups.shield > 0 && !ignoreInvuln) {
+      // shield absorbs without losing hp, brief flash
+      s.invuln = Math.max(s.invuln, 18);
+    }
+    return;
+  }
+  s.hp -= amount;
+  s.invuln = CFG.INVULN;
+  burst(s.x, s.y, "#ff9b6b", 12, 4);
+  Sound.ouch();
+  screenTint = { color: "rgba(255,40,40,0.25)", life: 18, max: 18 };
+  if (s.hp <= 0) {
+    s.hp = 0;
+    burst(s.x, s.y, COLORS.hullPink, 40, 8);
+    Sound.explode();
+    state = STATE.GAMEOVER;
+    clearPressed();
+  }
+}
+
+/* ----------------------------- Ship interior ----------------------------- */
+function enterShipInterior(toRoom) {
+  // dock back into the ship; appear in the Driver Room (by the controls)
+  const r = SHIP_ROOMS.find((x) => x.kind === (toRoom || "drive"));
+  game.interior.x = r.x + r.w / 2;
+  game.interior.y = r.y + r.h / 2;
+  game.interior.vx = 0; game.interior.vy = 0;
+  game.healTimer = 90;
+  state = STATE.SHIP;
+  clearPressed();
+}
+
+function interiorFloat(lx, ly, text, color) {
+  game.interiorFloats.push({ x: lx, y: ly, text, color, life: 70, max: 70 });
+}
+
+/* ---- Kitchen cooking ---- */
+// The dish is named after whichever ingredient you used the most.
+function mainIngredient(items) {
+  const counts = {};
+  for (const k of items) counts[k] = (counts[k] || 0) + 1;
+  let mk = items[0];
+  for (const k in counts) if (counts[k] > (counts[mk] || 0)) mk = k;
+  return INGREDIENTS.find((g) => g.key === mk) || INGREDIENTS[0];
+}
+
+function startCooking() {
+  const items = game.pantry.slice();
+  const main = mainIngredient(items);
+  game.cooking = { ticks: 130, total: 130, items, meal: main.dish };
+  game.pantry = [];
+  const it = game.interior;
+  interiorFloat(it.x, it.y - AVATAR_R - 10, "Cooking " + main.dish + "...", "#ffd6a0");
+  Sound.blip(300, 0.12, "sine", 0.06, 520);
+}
+
+function finishCooking() {
+  const c = game.cooking;
+  game.cooking = null;
+  const s = game.ship;
+  const it = game.interior;
+
+  // tally what went into the pot
+  const counts = {};
+  for (const k of c.items) counts[k] = (counts[k] || 0) + 1;
+
+  // healing: fish is the hearty one (2 hearts each), everything else 1
+  let heal = 0;
+  for (const k of c.items) heal += (k === "fish" ? 2 : 1);
+  const before = s.hp;
+  s.hp = Math.min(s.maxhp, s.hp + heal);
+  const gained = s.hp - before;
+
+  // signature boons — each special ingredient grants its own effect,
+  // and stacking more of it makes the boon last longer
+  const boons = [];
+  if (counts.pepper)   { s.powerups.rapid  = Math.max(s.powerups.rapid  || 0, 360 + counts.pepper   * 240); boons.push("Rapid Fire ⚡"); }
+  if (counts.mushroom) { s.powerups.shield = Math.max(s.powerups.shield || 0, 420 + counts.mushroom * 180); boons.push("Shield 🛡"); }
+  if (counts.egg)      { s.powerups.speed  = Math.max(s.powerups.speed  || 0, 360 + counts.egg      * 240); boons.push("Speed 💨"); }
+
+  // build a tasty message
+  const parts = [];
+  if (gained > 0) parts.push("+" + gained + "❤");
+  else if (heal > 0) { game.score += 50; parts.push("+50"); } // already full
+  for (const b of boons) parts.push(b);
+  const msg = c.meal + "! " + parts.join(" ");
+
+  interiorFloat(it.x, it.y - AVATAR_R - 12, msg, "#9bff9b");
+  Sound.good();
+}
+
+function updateInterior() {
+  const it = game.interior;
+  const s = game.ship;
+
+  if (consume("p") || consume("P")) { pauseFrom = STATE.SHIP; state = STATE.PAUSE; return; }
+
+  // ---- walk the character around ----
+  let ax = 0, ay = 0;
+  if (keys["ArrowLeft"] || keys["a"]) ax -= 1;
+  if (keys["ArrowRight"] || keys["d"]) ax += 1;
+  if (keys["ArrowUp"] || keys["w"]) ay -= 1;
+  if (keys["ArrowDown"] || keys["s"]) ay += 1;
+  const SPD = 0.9;
+  it.vx += ax * SPD; it.vy += ay * SPD;
+  it.vx *= 0.8; it.vy *= 0.8;
+  it.x += it.vx; it.y += it.vy;
+  if (ax !== 0) it.facing = ax > 0 ? 1 : -1;
+  if (ax !== 0 || ay !== 0) it.step += 0.25; else it.step = 0;
+  // keep inside the hull
+  const m = AVATAR_R + 16;
+  it.x = clamp(it.x, m, SHIP_W - m);
+  it.y = clamp(it.y, m, SHIP_H - m);
+
+  const room = roomAt(it.x, it.y);
+  const act = consume(" ") || consume("Enter"); // the contextual action button
+  const kind = room ? room.kind : null;
+
+  // a meal keeps cooking wherever you wander, then serves up
+  if (game.cooking) {
+    game.cooking.ticks--;
+    if (game.cooking.ticks <= 0) finishCooking();
+  }
+
+  // ---- per-room activities ----
+  if (kind === "bed") {
+    // Bedroom: slowly heals on its own; SPACE for a quick nap
+    if (s.hp < s.maxhp) {
+      game.healTimer--;
+      if (game.healTimer <= 0) {
+        s.hp = Math.min(s.maxhp, s.hp + 1);
+        interiorFloat(it.x, it.y - AVATAR_R - 8, "Zzz +1❤", "#9bff9b");
+        Sound.good();
+        game.healTimer = 90;
+      }
+    } else { game.healTimer = 90; }
+    if (act) {
+      if (s.hp < s.maxhp) {
+        s.hp = Math.min(s.maxhp, s.hp + 1);
+        interiorFloat(it.x, it.y - AVATAR_R - 8, "Quick nap! +1❤", "#9bff9b");
+        Sound.good();
+      } else {
+        interiorFloat(it.x, it.y - AVATAR_R - 8, "All rested!", "#cbb6ff");
+      }
+    }
+  } else { game.healTimer = 90; }
+
+  if (kind === "kitchen") {
+    // Kitchen: cook your collected ingredients into a meal
+    if (act && !game.cooking) {
+      if (game.pantry.length > 0) startCooking();
+      else interiorFloat(it.x, it.y - AVATAR_R - 8, "No food! Find ingredients in space.", "#ffd6a0");
+    }
+  }
+
+  if (kind === "shoot" && act) {
+    // Shooting Room: target practice readies your blaster (Rapid Fire)
+    game.targetHits++;
+    Sound.shoot();
+    if (game.targetHits >= 5) {
+      game.targetHits = 0;
+      s.powerups.rapid = 600;
+      interiorFloat(it.x, it.y - AVATAR_R - 10, "Trained! Rapid Fire ready! ⚡", "#ffe97a");
+      Sound.good();
+    } else {
+      interiorFloat(it.x, it.y - AVATAR_R - 8, "Pew! " + game.targetHits + "/5", "#ffb6c6");
+    }
+  }
+
+  if (kind === "toilet" && act) {
+    // Toilet: a pit stop clears bad effects and leaves you feeling light
+    delete s.powerups.reversed;
+    delete s.powerups.slow;
+    s.powerups.speed = 360;
+    interiorFloat(it.x, it.y - AVATAR_R - 8, "Ahhh! Feeling light! 💨", "#bcd6ff");
+    Sound.blip(200, 0.22, "sawtooth", 0.06, 90);
+  }
+
+  // ---- blast off from the Driver Room ----
+  if (kind === "drive" && act) {
+    game.hasFlown = true;
+    state = STATE.PLAY;
+    clearPressed();
+    Sound.explore();
+    return;
+  }
+
+  // floats
+  for (let i = game.interiorFloats.length - 1; i >= 0; i--) {
+    const f = game.interiorFloats[i];
+    f.y -= 0.5; f.life--;
+    if (f.life <= 0) game.interiorFloats.splice(i, 1);
+  }
+}
+
+/* ----------------------------- Update: PLAY ------------------------------ */
+function updatePlay() {
+  const s = game.ship;
+
+  // pause
+  if (consume("p") || consume("P")) { pauseFrom = STATE.PLAY; state = STATE.PAUSE; return; }
+
+  // fly back home to the ship interior
+  if (consume("b")) { enterShipInterior(); return; }
+
+  // ---- ship control ----
+  const reversed = s.powerups.reversed > 0 ? -1 : 1;
+  const left = (keys["ArrowLeft"] || keys["a"]);
+  const right = (keys["ArrowRight"] || keys["d"]);
+  const up = (keys["ArrowUp"] || keys["w"]);
+  if (left) s.angle -= CFG.SHIP_TURN * reversed;
+  if (right) s.angle += CFG.SHIP_TURN * reversed;
+
+  const speedMul = (s.powerups.speed > 0 ? 1.4 : 1) * (s.powerups.slow > 0 ? 0.45 : 1) * s.char.speed;
+  if (up) {
+    s.vx += Math.cos(s.angle) * CFG.SHIP_THRUST * s.char.thrust * speedMul;
+    s.vy += Math.sin(s.angle) * CFG.SHIP_THRUST * s.char.thrust * speedMul;
+    if (frame % 3 === 0) {
+      const bx = s.x - Math.cos(s.angle) * s.radius;
+      const by = s.y - Math.sin(s.angle) * s.radius;
+      game.particles.push({ x: bx, y: by, vx: -s.vx * 0.2 + rand(-0.6,0.6), vy: -s.vy * 0.2 + rand(-0.6,0.6), life: 14, max: 14, color: COLORS.flame, r: rand(2,4) });
+    }
+  }
+  s.vx *= CFG.SHIP_FRICTION; s.vy *= CFG.SHIP_FRICTION;
+  const sp = Math.hypot(s.vx, s.vy);
+  const maxSpd = CFG.SHIP_MAXSPD * (s.powerups.speed > 0 ? 1.4 : 1);
+  if (sp > maxSpd) { s.vx = s.vx / sp * maxSpd; s.vy = s.vy / sp * maxSpd; }
+  s.x = clamp(s.x + s.vx, 0, CFG.WORLD);
+  s.y = clamp(s.y + s.vy, 0, CFG.WORLD);
+  if (s.x === 0 || s.x === CFG.WORLD) s.vx *= -0.4;
+  if (s.y === 0 || s.y === CFG.WORLD) s.vy *= -0.4;
+
+  // ---- shooting ----
+  if (s.fireCd > 0) s.fireCd--;
+  if ((keys[" "] || keys["Spacebar"]) && s.fireCd <= 0) {
+    const rate = CFG.FIRE_RATE * s.char.fire * (s.powerups.rapid > 0 ? 0.45 : 1);
+    s.fireCd = rate;
+    const bx = s.x + Math.cos(s.angle) * s.radius;
+    const by = s.y + Math.sin(s.angle) * s.radius;
+    game.bullets.push({
+      x: bx, y: by,
+      vx: Math.cos(s.angle) * CFG.BULLET_SPD + s.vx * 0.5,
+      vy: Math.sin(s.angle) * CFG.BULLET_SPD + s.vy * 0.5,
+      life: CFG.BULLET_LIFE, r: 4,
+    });
+    Sound.shoot();
+  }
+
+  // ---- powerup timers / invuln ----
+  for (const k in s.powerups) { if (s.powerups[k] > 0) s.powerups[k]--; if (s.powerups[k] <= 0) delete s.powerups[k]; }
+  if (s.invuln > 0) s.invuln--;
+
+  // ---- camera ----
+  game.cam.x += (s.x - game.cam.x) * 0.1;
+  game.cam.y += (s.y - game.cam.y) * 0.1;
+
+  // ---- bullets ----
+  for (let i = game.bullets.length - 1; i >= 0; i--) {
+    const b = game.bullets[i];
+    b.x += b.vx; b.y += b.vy; b.life--;
+    if (b.life <= 0 || b.x < 0 || b.y < 0 || b.x > CFG.WORLD || b.y > CFG.WORLD) {
+      game.bullets.splice(i, 1);
+    }
+  }
+
+  // ---- monsters ----
+  for (let i = game.monsters.length - 1; i >= 0; i--) {
+    const m = game.monsters[i];
+    m.spin += m.spinV;
+    if (m.type === "blob") {
+      // home slowly toward ship
+      const dx = s.x - m.x, dy = s.y - m.y;
+      const d = Math.hypot(dx, dy) || 1;
+      m.vx += (dx / d) * 0.04;
+      m.vy += (dy / d) * 0.04;
+      const ms = Math.hypot(m.vx, m.vy);
+      if (ms > m.speed) { m.vx = m.vx / ms * m.speed; m.vy = m.vy / ms * m.speed; }
+    } else {
+      // gem wanders
+      if (frame % 40 === 0) { m.vx += rand(-0.3, 0.3); m.vy += rand(-0.3, 0.3); }
+      const ms = Math.hypot(m.vx, m.vy);
+      if (ms > m.speed) { m.vx = m.vx / ms * m.speed; m.vy = m.vy / ms * m.speed; }
+    }
+    m.x = clamp(m.x + m.vx, 0, CFG.WORLD);
+    m.y = clamp(m.y + m.vy, 0, CFG.WORLD);
+    if (m.x === 0 || m.x === CFG.WORLD) m.vx *= -1;
+    if (m.y === 0 || m.y === CFG.WORLD) m.vy *= -1;
+
+    // bullet collisions
+    let dead = false;
+    for (let j = game.bullets.length - 1; j >= 0; j--) {
+      const b = game.bullets[j];
+      if (dist2(b.x, b.y, m.x, m.y) < (m.r + b.r) * (m.r + b.r)) {
+        game.bullets.splice(j, 1);
+        m.hp--;
+        burst(b.x, b.y, m.type === "gem" ? COLORS.gem : COLORS.blob, 6, 3);
+        Sound.hit();
+        if (m.hp <= 0) { dead = true; break; }
+      }
+    }
+    if (dead) {
+      burst(m.x, m.y, m.type === "gem" ? COLORS.gem : COLORS.blob, 16, 5);
+      game.score += m.score;
+      floatText(m.x, m.y, "+" + m.score, "#ffe97a");
+      Sound.explode();
+      // chance to drop a present
+      if (Math.random() < 0.18) spawnPresent(m.x, m.y);
+      game.monsters.splice(i, 1);
+      continue;
+    }
+
+    // ship collision
+    if (dist2(m.x, m.y, s.x, s.y) < (m.r + s.radius) * (m.r + s.radius)) {
+      damageShip(1);
+      // knockback
+      const dx = s.x - m.x, dy = s.y - m.y, d = Math.hypot(dx, dy) || 1;
+      s.vx += dx / d * 3; s.vy += dy / d * 3;
+      m.vx -= dx / d * 2; m.vy -= dy / d * 2;
+    }
+  }
+
+  // ---- presents ----
+  for (let i = game.presents.length - 1; i >= 0; i--) {
+    const p = game.presents[i];
+    p.bob += 0.05;
+    if (dist2(p.x, p.y, s.x, s.y) < (p.r + s.radius) * (p.r + s.radius)) {
+      openPresent(p);
+      game.presents.splice(i, 1);
+    }
+  }
+
+  // ---- planets (explore on approach) ----
+  for (const pl of game.planets) {
+    if (!pl.visited) {
+      const reach = pl.r + s.radius + 26;
+      if (dist2(pl.x, pl.y, s.x, s.y) < reach * reach) {
+        pl.visited = true;
+        game.planetsExplored++;
+        game.score += 50;
+        floatText(pl.x, pl.y - pl.r - 14, "Explored " + pl.name + "! +50", "#9bd6ff");
+        Sound.explore();
+        // pop a cluster of presents + a monster or two
+        for (let k = 0; k < randInt(2, 3); k++) {
+          const a = rand(0, TAU), rr = pl.r + rand(40, 90);
+          spawnPresent(pl.x + Math.cos(a) * rr, pl.y + Math.sin(a) * rr);
+        }
+        for (let k = 0; k < randInt(1, 2); k++) {
+          const a = rand(0, TAU), rr = pl.r + rand(80, 140);
+          spawnMonster(null, pl.x + Math.cos(a) * rr, pl.y + Math.sin(a) * rr);
+        }
+        burst(pl.x, pl.y, pl.color, 24, 6);
+        if (game.planetsExplored >= game.planets.length) {
+          // win bonus but keep playing as endless
+          floatText(s.x, s.y - 40, "All planets explored! +500", "#ffe97a");
+          game.score += 500;
+        }
+      }
+    }
+    // gentle solid-ish push so you don't fly through the planet core
+    const minD = pl.r + s.radius - 6;
+    const dd = Math.hypot(s.x - pl.x, s.y - pl.y);
+    if (dd < minD && dd > 0) {
+      const nx = (s.x - pl.x) / dd, ny = (s.y - pl.y) / dd;
+      s.x = pl.x + nx * minD; s.y = pl.y + ny * minD;
+      s.vx += nx * 0.6; s.vy += ny * 0.6;
+    }
+  }
+
+  // ---- particles / floats ----
+  for (let i = game.particles.length - 1; i >= 0; i--) {
+    const pa = game.particles[i];
+    pa.x += pa.vx; pa.y += pa.vy; pa.vx *= 0.95; pa.vy *= 0.95; pa.life--;
+    if (pa.life <= 0) game.particles.splice(i, 1);
+  }
+  for (let i = game.floats.length - 1; i >= 0; i--) {
+    const f = game.floats[i];
+    f.y -= 0.5; f.life--;
+    if (f.life <= 0) game.floats.splice(i, 1);
+  }
+
+  // ---- spawning ----
+  game.monsterTimer--;
+  const difficulty = Math.min(1, game.score / 1500);
+  const spawnEvery = CFG.MONSTER_SPAWN - difficulty * 55;
+  if (game.monsterTimer <= 0 && game.monsters.length < CFG.MONSTER_MAX + Math.floor(difficulty * 6)) {
+    spawnMonster();
+    game.monsterTimer = spawnEvery;
+  }
+  game.presentTimer--;
+  if (game.presentTimer <= 0 && game.presents.length < CFG.PRESENT_MAX) {
+    spawnPresent();
+    game.presentTimer = CFG.PRESENT_SPAWN;
+  }
+
+  if (screenTint) { screenTint.life--; if (screenTint.life <= 0) screenTint = null; }
+}
+
+/* ----------------------------- Draw helpers ------------------------------ */
+function w2s(x, y) { return [x - game.cam.x + VW / 2, y - game.cam.y + VH / 2]; }
+function onScreen(x, y, pad = 80) {
+  const sx = x - game.cam.x + VW / 2, sy = y - game.cam.y + VH / 2;
+  return sx > -pad && sx < VW + pad && sy > -pad && sy < VH + pad;
+}
+
+function drawStars() {
+  const camx = game.cam.x, camy = game.cam.y;
+  for (const st of game.stars) {
+    // parallax: closer stars (depth~1) move more
+    const px = st.x - camx * st.depth + VW / 2;
+    const py = st.y - camy * st.depth + VH / 2;
+    // wrap within a screenful band so the field feels infinite
+    const wx = ((px % VW) + VW) % VW;
+    const wy = ((py % VH) + VH) % VH;
+    const tw = 0.6 + 0.4 * Math.sin(frame * 0.05 + st.tw);
+    ctx.globalAlpha = tw * st.depth;
+    ctx.fillStyle = COLORS.star;
+    ctx.beginPath();
+    ctx.arc(wx, wy, st.r, 0, TAU);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawShip(s) {
+  const [sx, sy] = w2s(s.x, s.y);
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(s.angle + Math.PI / 2); // art points "up" at angle 0
+  const r = s.radius;
+  // flame when thrusting handled via particles; draw small tail
+  if (keys["ArrowUp"] || keys["w"]) {
+    doodlePoly([[-r*0.4, r*0.9], [0, r*1.5 + Math.sin(frame*0.6)*4], [r*0.4, r*0.9]], COLORS.flame, { fill: "#ff9b3f", seed: frame, jitter: 2, lineWidth: 2 });
+  }
+  // hull (pink saucer/rocket like the concept art)
+  doodlePoly([
+    [0, -r * 1.25],
+    [r * 0.8, r * 0.6],
+    [r * 0.45, r * 1.0],
+    [-r * 0.45, r * 1.0],
+    [-r * 0.8, r * 0.6],
+  ], COLORS.hullDark, { fill: COLORS.hullPink, seed: s.id, jitter: 2, lineWidth: 3 });
+  // window (driver room)
+  doodleCircle(0, -r * 0.25, r * 0.42, "#2b6fb0", { fill: "#bfe6ff", lineWidth: 2.5, seed: s.id + 5 });
+  // little fins
+  doodleLine(-r * 0.8, r * 0.6, -r * 1.1, r * 1.1, COLORS.hullDark, 3, s.id + 1);
+  doodleLine(r * 0.8, r * 0.6, r * 1.1, r * 1.1, COLORS.hullDark, 3, s.id + 2);
+  ctx.restore();
+
+  // shield bubble
+  if (s.powerups.shield > 0) {
+    ctx.globalAlpha = 0.35 + 0.15 * Math.sin(frame * 0.2);
+    doodleCircle(sx, sy, r * 1.8, "#7be8ff", { lineWidth: 3, seed: frame * 0.1 });
+    ctx.globalAlpha = 1;
+  }
+  // invuln flash
+  if (s.invuln > 0 && Math.floor(frame / 4) % 2 === 0 && s.powerups.shield <= 0) {
+    ctx.globalAlpha = 0.5;
+    doodleCircle(sx, sy, r * 1.4, "#fff", { lineWidth: 2, seed: frame });
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawMonster(m) {
+  if (!onScreen(m.x, m.y)) return;
+  const [sx, sy] = w2s(m.x, m.y);
+  ctx.save();
+  ctx.translate(sx, sy);
+  if (m.type === "gem") {
+    ctx.rotate(m.spin);
+    const r = m.r;
+    doodlePoly([[0, -r], [r * 0.85, 0], [0, r], [-r * 0.85, 0]], COLORS.gemDark, { fill: COLORS.gem, seed: m.id, jitter: 2.4, lineWidth: 3 });
+    // facets
+    doodleLine(0, -r, 0, r, COLORS.gemDark, 1.5, m.id + 1);
+    doodleLine(-r * 0.85, 0, r * 0.85, 0, COLORS.gemDark, 1.5, m.id + 2);
+    // eyes to make it a "monster"
+    doodleCircle(-r * 0.22, -r * 0.05, r * 0.12, "#06351c", { fill: "#fff", lineWidth: 1.5, seed: m.id + 3 });
+    doodleCircle(r * 0.22, -r * 0.05, r * 0.12, "#06351c", { fill: "#fff", lineWidth: 1.5, seed: m.id + 4 });
+    ctx.fillStyle = "#06351c";
+    ctx.beginPath(); ctx.arc(-r * 0.22, -r * 0.05, r * 0.05, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(r * 0.22, -r * 0.05, r * 0.05, 0, TAU); ctx.fill();
+  } else {
+    const r = m.r;
+    const wob = Math.sin(frame * 0.1 + m.wobblePhase) * 1.5;
+    // antennae (pink creature from the art)
+    doodleLine(-r * 0.4, -r * 0.7, -r * 0.6, -r * 1.3 + wob, COLORS.blobDark, 2.5, m.id + 7);
+    doodleLine(r * 0.4, -r * 0.7, r * 0.6, -r * 1.3 - wob, COLORS.blobDark, 2.5, m.id + 8);
+    doodleCircle(-r * 0.6, -r * 1.35 + wob, r * 0.13, COLORS.blobDark, { fill: "#ffe", lineWidth: 1.5, seed: m.id + 9 });
+    doodleCircle(r * 0.6, -r * 1.35 - wob, r * 0.13, COLORS.blobDark, { fill: "#ffe", lineWidth: 1.5, seed: m.id + 10 });
+    // body
+    doodleCircle(0, 0, r, COLORS.blobDark, { fill: COLORS.blob, lineWidth: 3, seed: m.id });
+    // angry eyes
+    doodleCircle(-r * 0.3, -r * 0.1, r * 0.2, "#5a1030", { fill: "#fff", lineWidth: 2, seed: m.id + 1 });
+    doodleCircle(r * 0.3, -r * 0.1, r * 0.2, "#5a1030", { fill: "#fff", lineWidth: 2, seed: m.id + 2 });
+    ctx.fillStyle = "#5a1030";
+    ctx.beginPath(); ctx.arc(-r * 0.28, -r * 0.05, r * 0.09, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(r * 0.28, -r * 0.05, r * 0.09, 0, TAU); ctx.fill();
+    // frown
+    ctx.strokeStyle = "#5a1030"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(0, r * 0.55, r * 0.35, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawPresent(p) {
+  if (!onScreen(p.x, p.y)) return;
+  const bob = Math.sin(p.bob) * 4;
+  const [sx, sy] = w2s(p.x, p.y + bob);
+  const r = p.r;
+  ctx.save();
+  ctx.translate(sx, sy);
+  // box
+  doodlePoly([[-r, -r * 0.8], [r, -r * 0.8], [r, r * 0.8], [-r, r * 0.8]], "#3a2a1a", { fill: p.color, seed: p.id, jitter: 1.8, lineWidth: 3 });
+  // ribbon
+  doodleLine(0, -r * 0.8, 0, r * 0.8, "#fff", 3, p.id + 1);
+  doodleLine(-r, 0, r, 0, "#fff", 3, p.id + 2);
+  // bow
+  doodleCircle(-r * 0.35, -r * 0.95, r * 0.32, "#fff", { fill: p.color, lineWidth: 2, seed: p.id + 3 });
+  doodleCircle(r * 0.35, -r * 0.95, r * 0.32, "#fff", { fill: p.color, lineWidth: 2, seed: p.id + 4 });
+  // sparkle
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  const sp = (frame * 0.05 + p.id) % TAU;
+  ctx.globalAlpha = 0.5 + 0.5 * Math.sin(sp);
+  ctx.beginPath(); ctx.arc(r * 0.6, -r * 0.4, 2.2, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawPlanet(pl) {
+  if (!onScreen(pl.x, pl.y, pl.r + 120)) return;
+  const [sx, sy] = w2s(pl.x, pl.y);
+  if (pl.hasRing) {
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(0.5);
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, pl.r * 1.7, pl.r * 0.55, 0, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+  doodleCircle(sx, sy, pl.r, "rgba(0,0,0,0.5)", { fill: pl.color, lineWidth: 4, seed: pl.id, jitter: pl.r * 0.05 });
+  // a couple of craters/spots
+  doodleCircle(sx - pl.r * 0.3, sy - pl.r * 0.2, pl.r * 0.18, "rgba(0,0,0,0.25)", { fill: "rgba(0,0,0,0.18)", lineWidth: 1.5, seed: pl.id + 5 });
+  doodleCircle(sx + pl.r * 0.35, sy + pl.r * 0.25, pl.r * 0.12, "rgba(0,0,0,0.25)", { fill: "rgba(0,0,0,0.18)", lineWidth: 1.5, seed: pl.id + 6 });
+  if (pl.visited) {
+    doodleText(pl.name + " ✓", sx, sy - pl.r - 16, 18, "#9bff9b", { stroke: "#0a3", strokeWidth: 4 });
+  } else {
+    // gentle "explore me" pulse + a "?" so unknown planets feel discoverable
+    ctx.globalAlpha = 0.25 + 0.15 * Math.sin(frame * 0.06 + pl.id);
+    doodleCircle(sx, sy, pl.r + 16, "#ffffff", { lineWidth: 2, seed: pl.id + 9 });
+    ctx.globalAlpha = 1;
+    doodleText("?", sx, sy - pl.r - 16, 22, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
+  }
+}
+
+function drawParticles() {
+  for (const pa of game.particles) {
+    if (!onScreen(pa.x, pa.y)) continue;
+    const [sx, sy] = w2s(pa.x, pa.y);
+    ctx.globalAlpha = pa.life / pa.max;
+    ctx.fillStyle = pa.color;
+    ctx.beginPath(); ctx.arc(sx, sy, pa.r, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawFloats() {
+  for (const f of game.floats) {
+    const [sx, sy] = w2s(f.x, f.y);
+    ctx.globalAlpha = clamp(f.life / 25, 0, 1);
+    doodleText(f.text, sx, sy, 22, f.color, { stroke: "rgba(0,0,0,0.6)", strokeWidth: 4 });
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ----------------------------- HUD --------------------------------------- */
+function drawHeart(x, y, r, filled) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.beginPath();
+  ctx.moveTo(0, r * 0.3);
+  ctx.bezierCurveTo(0, -r * 0.2, -r, -r * 0.2, -r, r * 0.3);
+  ctx.bezierCurveTo(-r, r * 0.8, 0, r * 1.1, 0, r * 1.4);
+  ctx.bezierCurveTo(0, r * 1.1, r, r * 0.8, r, r * 0.3);
+  ctx.bezierCurveTo(r, -r * 0.2, 0, -r * 0.2, 0, r * 0.3);
+  ctx.closePath();
+  ctx.fillStyle = filled ? "#ff4d6d" : "rgba(255,255,255,0.15)";
+  ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = filled ? "#c0203f" : "rgba(255,255,255,0.4)";
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawHUD() {
+  const s = game.ship;
+  // hearts
+  for (let i = 0; i < s.maxhp; i++) {
+    drawHeart(28 + i * 26, 26, 9, i < s.hp);
+  }
+  // score
+  doodleText("Score: " + game.score, VW - 20, 30, 24, "#ffe97a", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 4 });
+  // planets
+  doodleText("Planets: " + game.planetsExplored + "/" + game.planets.length, VW - 20, 60, 18, "#9bd6ff", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+  // ingredients gathered (cook them in the Kitchen)
+  if (game.pantry.length > 0)
+    doodleText("🍴 Food: " + game.pantry.length, VW - 20, 86, 16, "#ffd6a0", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+  // character name
+  doodleText(s.char.name, 28, 52, 16, s.char.color, { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+
+  // active powerups
+  let px = 28, py = 78;
+  const pw = { rapid: "Rapid", shield: "Shield", speed: "Speed", reversed: "Reversed!", slow: "Slow!" };
+  for (const k in s.powerups) {
+    if (!pw[k]) continue;
+    const bad = (k === "reversed" || k === "slow");
+    const secs = Math.ceil(s.powerups[k] / 60);
+    doodleText(pw[k] + " " + secs + "s", px, py, 14, bad ? COLORS.bad : COLORS.good, { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+    py += 20;
+  }
+
+  if (Sound.muted) doodleText("🔇 muted (M)", VW / 2, 20, 14, "#9d97d6");
+  // hint: fly home to the ship
+  doodleText("Press B to fly home — cook food, train & rest in the ship", VW / 2, VH - 30, 14, "#bcb6f0");
+}
+
+/* ----------------------------- Minimap ----------------------------------- */
+function drawMinimap() {
+  const size = 120, pad = 14;
+  const mx = VW - size - pad, my = VH - size - pad;
+  ctx.save();
+  ctx.globalAlpha = 0.8;
+  ctx.fillStyle = "rgba(10,8,30,0.6)";
+  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.rect(mx, my, size, size); ctx.fill(); ctx.stroke();
+  const sc = size / CFG.WORLD;
+  for (const pl of game.planets) {
+    ctx.fillStyle = pl.visited ? "rgba(120,255,120,0.9)" : pl.color;
+    ctx.beginPath(); ctx.arc(mx + pl.x * sc, my + pl.y * sc, 3, 0, TAU); ctx.fill();
+  }
+  // ship
+  const s = game.ship;
+  ctx.fillStyle = s.char.color;
+  ctx.beginPath(); ctx.arc(mx + s.x * sc, my + s.y * sc, 3.5, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+/* ----------------------------- World bounds frame ------------------------ */
+function drawWorldEdge() {
+  const [tlx, tly] = w2s(0, 0);
+  const [brx, bry] = w2s(CFG.WORLD, CFG.WORLD);
+  ctx.strokeStyle = "rgba(120,110,200,0.35)";
+  ctx.lineWidth = 4;
+  ctx.setLineDash([12, 10]);
+  ctx.strokeRect(tlx, tly, brx - tlx, bry - tly);
+  ctx.setLineDash([]);
+}
+
+/* ----------------------------- Draw: PLAY -------------------------------- */
+function drawPlay() {
+  drawStars();
+  drawWorldEdge();
+  for (const pl of game.planets) drawPlanet(pl);
+  for (const p of game.presents) drawPresent(p);
+  for (const m of game.monsters) drawMonster(m);
+  // bullets
+  for (const b of game.bullets) {
+    if (!onScreen(b.x, b.y)) continue;
+    const [sx, sy] = w2s(b.x, b.y);
+    ctx.fillStyle = COLORS.bullet;
+    ctx.strokeStyle = "#ffb84d"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(sx, sy, b.r, 0, TAU); ctx.fill(); ctx.stroke();
+  }
+  drawParticles();
+  drawShip(game.ship);
+  drawFloats();
+  drawHUD();
+  drawMinimap();
+
+  if (screenTint) {
+    ctx.fillStyle = screenTint.color;
+    ctx.globalAlpha = screenTint.life / screenTint.max;
+    ctx.fillRect(0, 0, VW, VH);
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ----------------------------- Screens ----------------------------------- */
+function drawTitle() {
+  drawStarsStatic();
+  const cx = VW / 2, cy = VH / 2;
+  // floating demo doodles
+  doodleCircle(cx - 230 + Math.sin(frame * 0.03) * 10, cy - 120, 36, COLORS.gemDark, { fill: COLORS.gem, lineWidth: 3, seed: 1 });
+  doodleCircle(cx + 240 + Math.cos(frame * 0.04) * 10, cy - 90, 40, COLORS.blobDark, { fill: COLORS.blob, lineWidth: 3, seed: 2 });
+
+  doodleText("SPACE", cx, cy - 70 + Math.sin(frame * 0.04) * 4, Math.min(110, VW * 0.16), COLORS.hullPink, { stroke: "#5a1030", strokeWidth: 8 });
+  doodleText("WARRIORS", cx, cy + 30 + Math.sin(frame * 0.04 + 1) * 4, Math.min(96, VW * 0.14), "#ffd23f", { stroke: "#7a5000", strokeWidth: 8 });
+  doodleText("shoot monsters · explore planets · find presents", cx, cy + 110, 20, "#bcb6f0");
+  if (Math.floor(frame / 30) % 2 === 0)
+    doodleText("Press ENTER to start", cx, cy + 170, 26, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
+  doodleText("...but not all gifts are good!", cx, cy + 215, 16, "#ff9bbf");
+}
+
+function drawSelect() {
+  drawStarsStatic();
+  const cx = VW / 2;
+  doodleText("Pick your Warrior", cx, 90, 44, "#ffd23f", { stroke: "#7a5000", strokeWidth: 6 });
+  doodleText("← →  to choose · ENTER to board the ship", cx, 140, 18, "#bcb6f0");
+  const n = CHARACTERS.length;
+  const spacing = Math.min(220, (VW - 120) / n);
+  const startX = cx - (spacing * (n - 1)) / 2;
+  const cy = VH / 2 + 10;
+  for (let i = 0; i < n; i++) {
+    const ch = CHARACTERS[i];
+    const x = startX + i * spacing;
+    const sel = i === selIndex;
+    const r = sel ? 62 : 50;
+    const bob = sel ? Math.sin(frame * 0.08) * 6 : 0;
+    if (sel) {
+      ctx.globalAlpha = 0.4 + 0.2 * Math.sin(frame * 0.1);
+      doodleCircle(x, cy + bob, r + 18, ch.color, { lineWidth: 4, seed: i + 50 });
+      ctx.globalAlpha = 1;
+    }
+    drawCharFace(x, cy + bob, r, ch, frame + i * 30);
+    doodleText(ch.name, x, cy + r + 36, sel ? 26 : 20, sel ? "#fff" : "#cfc9ff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 3 });
+    doodleText(ch.desc, x, cy + r + 60, 15, ch.color);
+    // stat hearts preview
+    for (let h = 0; h < ch.hp; h++) drawHeart(x - (ch.hp - 1) * 9 + h * 18, cy + r + 78, 6, true);
+  }
+}
+
+/* Furniture for each room, drawn in local ship coords centered on the room. */
+function drawFurniture(room) {
+  const cx = room.x + room.w / 2, cy = room.y + room.h / 2;
+  const s = game.ship;
+  if (room.kind === "bed") {
+    doodlePoly([[cx-70,cy-22],[cx+70,cy-22],[cx+70,cy+30],[cx-70,cy+30]], "#6b4a8a", { fill: "#8a6bb0", seed: 11, lineWidth: 3 });
+    doodlePoly([[cx-64,cy-16],[cx-18,cy-16],[cx-18,cy+4],[cx-64,cy+4]], "#cfc0e8", { fill: "#efe6ff", seed: 12, lineWidth: 2 }); // pillow
+    doodleLine(cx-12, cy-16, cx-12, cy+24, "#6b4a8a", 2, 13);
+    doodleText("Rest to heal · SPACE to nap", cx, cy + 50, 13, "#cbb6ff", { shadow: false });
+  } else if (room.kind === "drive") {
+    // window to space
+    doodleCircle(cx, cy - 24, 40, "#2b6fb0", { fill: "#0a1740", lineWidth: 3, seed: 21 });
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU + frame * 0.01;
+      ctx.fillStyle = "#fff"; ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a) * (8 + i*2.2), cy - 24 + Math.sin(a*1.7) * 18, 1.6, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    doodleCircle(cx + 22, cy - 18, 8, "#7be8ff", { fill: "#46d6a0", lineWidth: 2, seed: 22 }); // a planet out the window
+    // console + steering wheel
+    doodlePoly([[cx-58,cy+18],[cx+58,cy+18],[cx+50,cy+42],[cx-50,cy+42]], "#1f3a4a", { fill: "#2d5566", seed: 23, lineWidth: 3 });
+    doodleCircle(cx, cy + 30, 16, "#9bd6ff", { lineWidth: 3, seed: 24 });
+    doodleLine(cx-12, cy+30, cx+12, cy+30, "#9bd6ff", 2.5, 25);
+    doodleLine(cx, cy+18, cx, cy+42, "#9bd6ff", 2.5, 26);
+  } else if (room.kind === "shoot") {
+    // target
+    doodleCircle(cx - 150, cy, 30, "#fff", { fill: "#3a1f28", lineWidth: 3, seed: 31 });
+    doodleCircle(cx - 150, cy, 18, "#ff6b6b", { lineWidth: 3, seed: 32 });
+    doodleCircle(cx - 150, cy, 7, "#fff", { fill: "#ffd23f", lineWidth: 2, seed: 33 });
+    doodleCircle(cx + 150, cy, 30, "#fff", { fill: "#3a1f28", lineWidth: 3, seed: 34 });
+    doodleCircle(cx + 150, cy, 18, "#ff6b6b", { lineWidth: 3, seed: 35 });
+    doodleCircle(cx + 150, cy, 7, "#fff", { fill: "#ffd23f", lineWidth: 2, seed: 36 });
+    // blaster on a rack
+    doodlePoly([[cx-26,cy-6],[cx+18,cy-6],[cx+30,cy+2],[cx+18,cy+10],[cx-26,cy+10]], "#c23e8e", { fill: "#ff7bc6", seed: 37, lineWidth: 3 });
+    doodleText(game.targetHits > 0 ? ("Training " + game.targetHits + "/5 — SPACE!") : "SPACE for target practice", cx, cy + 44, 13, "#ffb6c6", { shadow: false });
+  } else if (room.kind === "kitchen") {
+    const cooking = game.cooking;
+    // stove
+    doodlePoly([[cx-50,cy-20],[cx+50,cy-20],[cx+50,cy+30],[cx-50,cy+30]], "#6b6b6b", { fill: "#9aa7b5", seed: 41, lineWidth: 3 });
+    doodleCircle(cx - 24, cy - 2, 12, "#444", { fill: cooking ? "#ff8a3a" : "#caa6a0", lineWidth: 2, seed: 42 });
+    doodleCircle(cx + 24, cy - 2, 12, "#444", { fill: "#777", lineWidth: 2, seed: 43 });
+    // pot on the lit burner
+    doodleCircle(cx - 24, cy - 8, 11, "#333", { fill: "#bbb", lineWidth: 2, seed: 44 });
+    if (cooking) {
+      // bubbles + steam rising from the pot
+      for (let i = 0; i < 5; i++) {
+        const bx = cx - 24 + Math.sin(frame * 0.08 + i * 1.7) * 6;
+        const by = cy - 16 - ((frame * 0.6 + i * 12) % 44);
+        ctx.globalAlpha = 0.5; ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(bx, by, 3, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      doodleText(cooking.meal, cx, cy + 44, 13, "#ffd6a0", { shadow: false });
+      const prog = 1 - cooking.ticks / cooking.total;
+      ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(cx - 50, cy + 54, 100, 8);
+      ctx.fillStyle = "#7be88a"; ctx.fillRect(cx - 50, cy + 54, 100 * prog, 8);
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.strokeRect(cx - 50, cy + 54, 100, 8);
+    } else if (game.pantry.length > 0) {
+      const em = game.pantry.map((k) => { const g = INGREDIENTS.find((x) => x.key === k); return g ? g.emoji : ""; }).join(" ");
+      doodleText(em, cx, cy + 46, 16, "#fff", { shadow: false });
+      doodleText("SPACE to cook (" + game.pantry.length + ")", cx, cy + 66, 12, "#bfe6c0", { shadow: false });
+    } else {
+      doodleText("Find food in space!", cx, cy + 48, 13, "#bfe6c0", { shadow: false });
+    }
+  } else if (room.kind === "toilet") {
+    // bowl + tank
+    doodlePoly([[cx-14,cy-30],[cx+14,cy-30],[cx+14,cy-8],[cx-14,cy-8]], "#aaccdd", { fill: "#e8f4ff", seed: 51, lineWidth: 3 });
+    doodleCircle(cx, cy + 8, 20, "#aaccdd", { fill: "#e8f4ff", lineWidth: 3, seed: 52 });
+    doodleCircle(cx, cy + 8, 12, "#88aacc", { fill: "#cfe6ff", lineWidth: 2, seed: 53 });
+    doodleText("SPACE for a pit stop", cx, cy + 44, 13, "#bcd6ff", { shadow: false });
+  }
+}
+
+function drawAvatarInterior(lx, ly, ch, walking) {
+  // little shadow
+  ctx.globalAlpha = 0.3; ctx.fillStyle = "#000";
+  ctx.beginPath(); ctx.ellipse(lx, ly + AVATAR_R + 12, AVATAR_R * 0.9, 5, 0, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 1;
+  // legs (wiggle while walking)
+  const lw = walking ? Math.sin(game.interior.step) * 5 : 0;
+  doodleLine(lx - 6, ly + AVATAR_R, lx - 6, ly + AVATAR_R + 12 + lw, "#3a2d2d", 4, 61);
+  doodleLine(lx + 6, ly + AVATAR_R, lx + 6, ly + AVATAR_R + 12 - lw, "#3a2d2d", 4, 62);
+  // head/face
+  drawCharFace(lx, ly, AVATAR_R, ch, frame);
+}
+
+function drawInterior() {
+  drawStarsStatic();
+  ctx.fillStyle = "rgba(5,3,20,0.5)"; ctx.fillRect(0, 0, VW, VH);
+  const sc = Math.min(1, (VW - 40) / SHIP_W, (VH - 170) / SHIP_H);
+  ctx.save();
+  ctx.translate(VW / 2, VH / 2 + 16);
+  ctx.scale(sc, sc);
+  ctx.translate(-SHIP_W / 2, -SHIP_H / 2);
+
+  // hull
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  const hullPad = 12, rr = 70;
+  function hullPath() {
+    const x = -hullPad, y = -hullPad, w = SHIP_W + hullPad * 2, h = SHIP_H + hullPad * 2;
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+  hullPath(); ctx.fillStyle = "#1a1330"; ctx.fill();
+  hullPath(); ctx.strokeStyle = COLORS.hullPink; ctx.lineWidth = 12; ctx.stroke();
+  hullPath(); ctx.strokeStyle = COLORS.hullDark; ctx.lineWidth = 4; ctx.stroke();
+
+  const it = game.interior;
+  const cur = roomAt(it.x, it.y);
+
+  // rooms
+  for (const room of SHIP_ROOMS) {
+    const pts = [[room.x,room.y],[room.x+room.w,room.y],[room.x+room.w,room.y+room.h],[room.x,room.y+room.h]];
+    const isCur = room === cur;
+    doodlePoly(pts, isCur ? "#fff" : "rgba(255,255,255,0.45)", { fill: room.color, seed: room.x, jitter: 2, lineWidth: isCur ? 4 : 2.5 });
+    doodleText(room.name, room.x + room.w / 2, room.y + 18, 17, isCur ? "#fff" : "#cfc9ff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 3 });
+    drawFurniture(room);
+  }
+
+  // avatar
+  const walking = (Math.abs(it.vx) + Math.abs(it.vy)) > 0.3;
+  drawAvatarInterior(it.x, it.y, game.ship.char, walking);
+
+  // interior floats
+  for (const f of game.interiorFloats) {
+    ctx.globalAlpha = clamp(f.life / 25, 0, 1);
+    doodleText(f.text, f.x, f.y, 18, f.color, { stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // ---- screen-space UI ----
+  doodleText("Inside the Ship", VW / 2, 40, 34, "#ffd23f", { stroke: "#7a5000", strokeWidth: 5 });
+  // health hearts so you can watch yourself heal
+  for (let i = 0; i < game.ship.maxhp; i++) drawHeart(28 + i * 26, 28, 9, i < game.ship.hp);
+  doodleText(game.ship.char.name, 28, 56, 16, game.ship.char.color, { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+  doodleText("🍴 Food: " + game.pantry.length, 28, 80, 15, "#ffd6a0", { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+
+  // room-contextual hint along the bottom
+  let hint = "", big = false;
+  if (cur && cur.kind === "drive") { hint = "Press SPACE to BLAST OFF! 🚀"; big = true; }
+  else if (cur && cur.kind === "kitchen") {
+    if (game.cooking) hint = "Cooking " + game.cooking.meal + "...";
+    else if (game.pantry.length) { const mi = mainIngredient(game.pantry); hint = "SPACE to cook " + mi.dish + " (" + mi.boon + ")"; }
+    else hint = "Bring ingredients from space to cook!";
+  }
+  else if (cur && cur.kind === "shoot") hint = "Press SPACE for target practice ⚡";
+  else if (cur && cur.kind === "bed") hint = "Rest to heal — SPACE for a quick nap 💤";
+  else if (cur && cur.kind === "toilet") hint = "Press SPACE for a pit stop 💨";
+  else hint = game.hasFlown ? "Walk into a room to use it" : "Walk to the Driver Room and press SPACE to fly!";
+
+  if (big) {
+    const col = Math.floor(frame / 22) % 2 === 0 ? "#9bff9b" : "#7be88a";
+    doodleText(hint, VW / 2, VH - 46, 26, col, { stroke: "rgba(0,0,0,0.6)", strokeWidth: 5 });
+  } else {
+    doodleText(hint, VW / 2, VH - 46, 18, "#ffd6e6", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 3 });
+  }
+}
+
+function drawPause() {
+  if (pauseFrom === STATE.SHIP) drawInterior(); else drawPlay();
+  ctx.fillStyle = "rgba(5,3,20,0.6)";
+  ctx.fillRect(0, 0, VW, VH);
+  doodleText("Paused", VW / 2, VH / 2 - 20, 64, "#fff", { stroke: "#333", strokeWidth: 6 });
+  doodleText("Press P to resume", VW / 2, VH / 2 + 40, 24, "#bcb6f0");
+}
+
+function drawGameOver() {
+  drawPlay();
+  ctx.fillStyle = "rgba(40,3,20,0.55)";
+  ctx.fillRect(0, 0, VW, VH);
+  doodleText("Game Over", VW / 2, VH / 2 - 60, 72, "#ff6b6b", { stroke: "#5a1030", strokeWidth: 7 });
+  doodleText("Score: " + game.score, VW / 2, VH / 2 + 10, 40, "#ffd23f", { stroke: "#7a5000", strokeWidth: 5 });
+  doodleText("Planets explored: " + game.planetsExplored + "/" + game.planets.length, VW / 2, VH / 2 + 55, 22, "#9bd6ff");
+  if (Math.floor(frame / 30) % 2 === 0)
+    doodleText("Press ENTER to play again", VW / 2, VH / 2 + 120, 26, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
+}
+
+/* Static-ish star backdrop for menus (uses screen-space scatter). */
+let _menuStars = null;
+function drawStarsStatic() {
+  if (!_menuStars) {
+    _menuStars = [];
+    for (let i = 0; i < 160; i++) _menuStars.push({ x: Math.random(), y: Math.random(), r: rand(0.6, 2.2), tw: rand(0, TAU) });
+  }
+  for (const st of _menuStars) {
+    const tw = 0.5 + 0.5 * Math.sin(frame * 0.05 + st.tw);
+    ctx.globalAlpha = tw;
+    ctx.fillStyle = COLORS.star;
+    ctx.beginPath(); ctx.arc(st.x * VW, st.y * VH, st.r, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ----------------------------- Main loop --------------------------------- */
+function update() {
+  frame++;
+  if (state === STATE.TITLE) {
+    if (consume("Enter")) { state = STATE.SELECT; clearPressed(); }
+  } else if (state === STATE.SELECT) {
+    if (consume("ArrowLeft") || consume("a")) selIndex = (selIndex + CHARACTERS.length - 1) % CHARACTERS.length;
+    if (consume("ArrowRight") || consume("d")) selIndex = (selIndex + 1) % CHARACTERS.length;
+    if (consume("Enter")) startGame(selIndex);
+  } else if (state === STATE.SHIP) {
+    updateInterior();
+  } else if (state === STATE.PLAY) {
+    updatePlay();
+  } else if (state === STATE.PAUSE) {
+    if (consume("p") || consume("P")) state = pauseFrom;
+  } else if (state === STATE.GAMEOVER) {
+    if (consume("Enter")) { state = STATE.SELECT; clearPressed(); }
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, VW, VH);
+  switch (state) {
+    case STATE.TITLE: drawTitle(); break;
+    case STATE.SELECT: drawSelect(); break;
+    case STATE.SHIP: drawInterior(); break;
+    case STATE.PLAY: drawPlay(); break;
+    case STATE.PAUSE: drawPause(); break;
+    case STATE.GAMEOVER: drawGameOver(); break;
+  }
+}
+
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
