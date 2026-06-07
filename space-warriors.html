@@ -155,7 +155,7 @@ const CFG = {
   BULLET_SPD: 11,
   BULLET_LIFE: 70,
   FIRE_RATE: 13,          // frames between shots (lower = faster)
-  MONSTER_MAX: 300,
+  MONSTER_MAX: 20,
   MONSTER_SPAWN: 95,      // frames between spawns (decreases as score grows)
   PRESENT_MAX: 6,
   PRESENT_SPAWN: 220,
@@ -760,7 +760,7 @@ function makeConfetti() {
 
 function openPresent(p) {
   // a gift might hold a piece of the Magic Custard Pie recipe
-  if (pieRemaining().length && Math.random() < 0.4) {
+  if (pieRemaining().length && Math.random() < 0.1) {
     collectPieIngredient(p);
     return;
   }
