@@ -13,7 +13,8 @@ Walk around the ship interior to rest, train, and **cook ingredients into meals*
 grant different power-ups depending on the recipe.
 
 - **Play:** https://richjackson.github.io/claude-arcade/space-warriors.html
-- **Controls:** Arrows / WASD = move · Space = shoot / use room · B = fly home · P = pause · M = mute
+- **Controls (keyboard):** Arrows / WASD = move · Space = shoot / use room · B = fly home · P = pause · M = mute
+- **Controls (mobile):** on-screen D-pad to move, **FIRE** to shoot, **USE** for room actions, **HOME** to fly back, plus pause/mute — touch controls appear automatically on phones & tablets.
 
 ## Running locally
 

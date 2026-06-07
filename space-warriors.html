@@ -34,11 +34,108 @@
     letter-spacing: 0.5px;
     text-shadow: 0 1px 2px #000;
   }
+
+  /* ---------------- Mobile touch controls ---------------- */
+  /* Hidden by default; shown only on touch devices (body.touch). Each button
+     drives the same keys[]/pressed[] state the keyboard uses. */
+  #touch { display: none; }
+  body.touch #footer { display: none; }
+  body.touch #touch { display: block; }
+
+  .tbtn {
+    position: fixed;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    background: rgba(40, 30, 80, 0.5);
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    color: #fff;
+    font-family: inherit;
+    font-weight: bold;
+    border-radius: 50%;
+    text-shadow: 0 1px 2px #000;
+    transition: transform 0.05s ease, background 0.05s ease;
+  }
+  .tbtn.pressed { background: rgba(255, 123, 198, 0.6); transform: scale(0.92); }
+
+  /* D-pad (left) — a 3x3 grid of movement buttons */
+  #dpad {
+    position: fixed;
+    left: 18px;
+    bottom: 22px;
+    width: 174px;
+    height: 174px;
+    display: none;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 6px;
+    pointer-events: none;
+  }
+  body.touch.gs-select #dpad,
+  body.touch.gs-ship #dpad,
+  body.touch.gs-play #dpad { display: grid; }
+  #dpad .tbtn { position: static; width: 100%; height: 100%; font-size: 26px; }
+  #b-up    { grid-area: 1 / 2 / 2 / 3; }
+  #b-left  { grid-area: 2 / 1 / 3 / 2; }
+  #b-right { grid-area: 2 / 3 / 3 / 4; }
+  #b-down  { grid-area: 3 / 2 / 4 / 3; }
+  /* in flight there's no "down", so hide it while playing */
+  body.gs-play #b-down { visibility: hidden; }
+
+  /* Action buttons (right) */
+  #b-fire {
+    right: 24px;
+    bottom: 30px;
+    width: 112px;
+    height: 112px;
+    font-size: 22px;
+    border-color: rgba(255, 210, 63, 0.8);
+    background: rgba(120, 70, 30, 0.5);
+  }
+  #b-home {
+    right: 150px;
+    bottom: 66px;
+    width: 66px;
+    height: 66px;
+    font-size: 14px;
+    display: none;
+  }
+  body.gs-play #b-home { display: flex; }
+
+  /* Top-right utility buttons */
+  #b-pause, #b-mute {
+    top: 12px;
+    width: 46px;
+    height: 46px;
+    font-size: 18px;
+    border-width: 2px;
+  }
+  #b-mute  { right: 14px; }
+  #b-pause { right: 70px; display: none; }
+  body.gs-play #b-pause, body.gs-ship #b-pause { display: flex; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="footer">Arrows / WASD = move &nbsp;·&nbsp; Space = shoot / use room &nbsp;·&nbsp; B = fly home to ship &nbsp;·&nbsp; P = pause &nbsp;·&nbsp; M = mute</div>
+<div id="touch" aria-hidden="true">
+  <div id="dpad">
+    <button class="tbtn" id="b-up">▲</button>
+    <button class="tbtn" id="b-left">◀</button>
+    <button class="tbtn" id="b-right">▶</button>
+    <button class="tbtn" id="b-down">▼</button>
+  </div>
+  <button class="tbtn" id="b-fire">FIRE</button>
+  <button class="tbtn" id="b-home">HOME</button>
+  <button class="tbtn" id="b-pause">❚❚</button>
+  <button class="tbtn" id="b-mute">🔊</button>
+</div>
 <script>
 "use strict";
 /* =========================================================================
@@ -58,7 +155,7 @@ const CFG = {
   BULLET_SPD: 11,
   BULLET_LIFE: 70,
   FIRE_RATE: 13,          // frames between shots (lower = faster)
-  MONSTER_MAX: 14,
+  MONSTER_MAX: 300,
   MONSTER_SPAWN: 95,      // frames between spawns (decreases as score grows)
   PRESENT_MAX: 6,
   PRESENT_SPAWN: 220,
@@ -281,8 +378,83 @@ window.addEventListener("keyup", (e) => {
   keys[k] = false;
 });
 canvas.addEventListener("mousedown", () => { Sound.ensure(); pressed["Enter"] = true; });
+// tap the screen to start / continue on the title and game-over screens
+canvas.addEventListener("touchstart", (e) => {
+  if (state === STATE.TITLE || state === STATE.GAMEOVER) { e.preventDefault(); Sound.ensure(); pressed["Enter"] = true; }
+}, { passive: false });
 function consume(key) { if (pressed[key]) { pressed[key] = false; return true; } return false; }
 function clearPressed() { for (const k in pressed) pressed[k] = false; }
+
+/* ----------------------------- Touch controls --------------------------- */
+/* On-screen buttons for phones/tablets. They drive the very same keys[] /
+   pressed[] state as the keyboard, so all game logic works unchanged. */
+let isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+// the big right-hand button is contextual: FIRE while flying, USE/START in
+// menus and the ship interior. primaryKey tracks what it should send.
+let primaryKey = " ";
+
+function pressKey(k) { if (!k) return; Sound.ensure(); if (!keys[k]) pressed[k] = true; keys[k] = true; }
+function releaseKey(k) { if (!k) return; keys[k] = false; }
+// A one-shot tap (pause, fly-home): latch a press without leaving the key held.
+function tapKey(k) { Sound.ensure(); pressed[k] = true; keys[k] = false; }
+
+// Bind a button to a held key (keyFn lets the key vary, e.g. the FIRE button).
+function bindHold(el, keyFn) {
+  if (!el) return;
+  let held = null;
+  const down = (e) => { e.preventDefault(); held = keyFn(); pressKey(held); el.classList.add("pressed"); };
+  const up = (e) => { if (e && e.cancelable) e.preventDefault(); releaseKey(held); held = null; el.classList.remove("pressed"); };
+  el.addEventListener("touchstart", down, { passive: false });
+  el.addEventListener("touchend", up, { passive: false });
+  el.addEventListener("touchcancel", up, { passive: false });
+  el.addEventListener("mousedown", down);
+  el.addEventListener("mouseleave", up);
+  window.addEventListener("mouseup", up);
+}
+// Bind a button to a single-shot action.
+function bindTap(el, fn) {
+  if (!el) return;
+  const h = (e) => { e.preventDefault(); el.classList.add("pressed"); fn(); setTimeout(() => el.classList.remove("pressed"), 90); };
+  el.addEventListener("touchstart", h, { passive: false });
+  el.addEventListener("mousedown", h);
+}
+
+const fireBtn = document.getElementById("b-fire");
+const muteBtn = document.getElementById("b-mute");
+if (isTouch) {
+  document.body.classList.add("touch");
+  bindHold(document.getElementById("b-up"), () => "ArrowUp");
+  bindHold(document.getElementById("b-down"), () => "ArrowDown");
+  bindHold(document.getElementById("b-left"), () => "ArrowLeft");
+  bindHold(document.getElementById("b-right"), () => "ArrowRight");
+  bindHold(fireBtn, () => primaryKey);
+  bindTap(document.getElementById("b-home"), () => tapKey("b"));
+  bindTap(document.getElementById("b-pause"), () => tapKey("p"));
+  bindTap(muteBtn, () => { Sound.muted = !Sound.muted; });
+}
+
+// The word used in on-screen prompts for the contextual action — the USE/GO
+// button on touch, the spacebar on desktop.
+function actWord() { return isTouch ? "USE" : "SPACE"; }
+
+// Keep the touch UI in step with the game state each frame.
+function syncTouchUI() {
+  if (!isTouch) return;
+  const cls = "gs-" + state;
+  if (document.body._gs !== cls) {
+    if (document.body._gs) document.body.classList.remove(document.body._gs);
+    document.body.classList.add(cls);
+    document.body._gs = cls;
+  }
+  let key = "Enter", label = "START";
+  if (state === STATE.PLAY) { key = " "; label = "FIRE"; }
+  else if (state === STATE.SHIP) { key = "Enter"; label = "USE"; }
+  else if (state === STATE.SELECT) { key = "Enter"; label = "GO"; }
+  primaryKey = key;
+  if (fireBtn && fireBtn.textContent !== label) fireBtn.textContent = label;
+  const mIcon = Sound.muted ? "🔇" : "🔊";
+  if (muteBtn && muteBtn.textContent !== mIcon) muteBtn.textContent = mIcon;
+}
 
 /* ----------------------------- Characters -------------------------------- */
 const CHARACTERS = [
@@ -1143,18 +1315,28 @@ function drawHUD() {
   for (let i = 0; i < s.maxhp; i++) {
     drawHeart(28 + i * 26, 26, 9, i < s.hp);
   }
-  // score
-  doodleText("Score: " + game.score, VW - 20, 30, 24, "#ffe97a", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 4 });
-  // planets
-  doodleText("Planets: " + game.planetsExplored + "/" + game.planets.length, VW - 20, 60, 18, "#9bd6ff", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
-  // ingredients gathered (cook them in the Kitchen)
-  if (game.pantry.length > 0)
-    doodleText("🍴 Food: " + game.pantry.length, VW - 20, 86, 16, "#ffd6a0", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
   // character name
   doodleText(s.char.name, 28, 52, 16, s.char.color, { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
 
-  // active powerups
-  let px = 28, py = 78;
+  // On touch, the top-right corner holds the pause/mute buttons, so the
+  // score/planets/food readout lives in the left column instead.
+  let py;
+  if (isTouch) {
+    doodleText("Score: " + game.score, 28, 78, 20, "#ffe97a", { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 4 });
+    doodleText("Planets: " + game.planetsExplored + "/" + game.planets.length, 28, 102, 16, "#9bd6ff", { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+    if (game.pantry.length > 0)
+      doodleText("🍴 Food: " + game.pantry.length, 28, 124, 16, "#ffd6a0", { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+    py = game.pantry.length > 0 ? 148 : 126;
+  } else {
+    doodleText("Score: " + game.score, VW - 20, 30, 24, "#ffe97a", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 4 });
+    doodleText("Planets: " + game.planetsExplored + "/" + game.planets.length, VW - 20, 60, 18, "#9bd6ff", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+    if (game.pantry.length > 0)
+      doodleText("🍴 Food: " + game.pantry.length, VW - 20, 86, 16, "#ffd6a0", { align: "right", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+    py = 78;
+  }
+
+  // active powerups (left column, below the readout)
+  const px = 28;
   const pw = { rapid: "Rapid", shield: "Shield", speed: "Speed", reversed: "Reversed!", slow: "Slow!" };
   for (const k in s.powerups) {
     if (!pw[k]) continue;
@@ -1164,15 +1346,19 @@ function drawHUD() {
     py += 20;
   }
 
-  if (Sound.muted) doodleText("🔇 muted (M)", VW / 2, 20, 14, "#9d97d6");
+  if (Sound.muted && !isTouch) doodleText("🔇 muted (M)", VW / 2, 20, 14, "#9d97d6");
   // hint: fly home to the ship
-  doodleText("Press B to fly home — cook food, train & rest in the ship", VW / 2, VH - 30, 14, "#bcb6f0");
+  const hint = isTouch ? "Tap HOME to fly back — cook food, train & rest in the ship"
+                       : "Press B to fly home — cook food, train & rest in the ship";
+  doodleText(hint, VW / 2, VH - 30, 14, "#bcb6f0");
 }
 
 /* ----------------------------- Minimap ----------------------------------- */
 function drawMinimap() {
-  const size = 120, pad = 14;
-  const mx = VW - size - pad, my = VH - size - pad;
+  const size = isTouch ? 100 : 120, pad = 14;
+  // on touch the bottom-right corner is the FIRE button, so park the minimap
+  // in the top-right corner instead (below the pause/mute buttons)
+  const mx = VW - size - pad, my = isTouch ? 66 : VH - size - pad;
   ctx.save();
   ctx.globalAlpha = 0.8;
   ctx.fillStyle = "rgba(10,8,30,0.6)";
@@ -1244,7 +1430,7 @@ function drawTitle() {
   doodleText("WARRIORS", cx, cy + 30 + Math.sin(frame * 0.04 + 1) * 4, Math.min(96, VW * 0.14), "#ffd23f", { stroke: "#7a5000", strokeWidth: 8 });
   doodleText("shoot monsters · explore planets · find presents", cx, cy + 110, 20, "#bcb6f0");
   if (Math.floor(frame / 30) % 2 === 0)
-    doodleText("Press ENTER to start", cx, cy + 170, 26, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
+    doodleText(isTouch ? "Tap to start" : "Press ENTER to start", cx, cy + 170, 26, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
   doodleText("...but not all gifts are good!", cx, cy + 215, 16, "#ff9bbf");
 }
 
@@ -1252,7 +1438,7 @@ function drawSelect() {
   drawStarsStatic();
   const cx = VW / 2;
   doodleText("Pick your Warrior", cx, 90, 44, "#ffd23f", { stroke: "#7a5000", strokeWidth: 6 });
-  doodleText("← →  to choose · ENTER to board the ship", cx, 140, 18, "#bcb6f0");
+  doodleText(isTouch ? "◀ ▶ to choose · GO to board the ship" : "← →  to choose · ENTER to board the ship", cx, 140, 18, "#bcb6f0");
   const n = CHARACTERS.length;
   const spacing = Math.min(220, (VW - 120) / n);
   const startX = cx - (spacing * (n - 1)) / 2;
@@ -1284,7 +1470,7 @@ function drawFurniture(room) {
     doodlePoly([[cx-70,cy-22],[cx+70,cy-22],[cx+70,cy+30],[cx-70,cy+30]], "#6b4a8a", { fill: "#8a6bb0", seed: 11, lineWidth: 3 });
     doodlePoly([[cx-64,cy-16],[cx-18,cy-16],[cx-18,cy+4],[cx-64,cy+4]], "#cfc0e8", { fill: "#efe6ff", seed: 12, lineWidth: 2 }); // pillow
     doodleLine(cx-12, cy-16, cx-12, cy+24, "#6b4a8a", 2, 13);
-    doodleText("Rest to heal · SPACE to nap", cx, cy + 50, 13, "#cbb6ff", { shadow: false });
+    doodleText("Rest to heal · " + actWord() + " to nap", cx, cy + 50, 13, "#cbb6ff", { shadow: false });
   } else if (room.kind === "drive") {
     // window to space
     doodleCircle(cx, cy - 24, 40, "#2b6fb0", { fill: "#0a1740", lineWidth: 3, seed: 21 });
@@ -1310,7 +1496,7 @@ function drawFurniture(room) {
     doodleCircle(cx + 150, cy, 7, "#fff", { fill: "#ffd23f", lineWidth: 2, seed: 36 });
     // blaster on a rack
     doodlePoly([[cx-26,cy-6],[cx+18,cy-6],[cx+30,cy+2],[cx+18,cy+10],[cx-26,cy+10]], "#c23e8e", { fill: "#ff7bc6", seed: 37, lineWidth: 3 });
-    doodleText(game.targetHits > 0 ? ("Training " + game.targetHits + "/5 — SPACE!") : "SPACE for target practice", cx, cy + 44, 13, "#ffb6c6", { shadow: false });
+    doodleText(game.targetHits > 0 ? ("Training " + game.targetHits + "/5 — " + actWord() + "!") : (actWord() + " for target practice"), cx, cy + 44, 13, "#ffb6c6", { shadow: false });
   } else if (room.kind === "kitchen") {
     const cooking = game.cooking;
     // stove
@@ -1336,7 +1522,7 @@ function drawFurniture(room) {
     } else if (game.pantry.length > 0) {
       const em = game.pantry.map((k) => { const g = INGREDIENTS.find((x) => x.key === k); return g ? g.emoji : ""; }).join(" ");
       doodleText(em, cx, cy + 46, 16, "#fff", { shadow: false });
-      doodleText("SPACE to cook (" + game.pantry.length + ")", cx, cy + 66, 12, "#bfe6c0", { shadow: false });
+      doodleText(actWord() + " to cook (" + game.pantry.length + ")", cx, cy + 66, 12, "#bfe6c0", { shadow: false });
     } else {
       doodleText("Find food in space!", cx, cy + 48, 13, "#bfe6c0", { shadow: false });
     }
@@ -1345,7 +1531,7 @@ function drawFurniture(room) {
     doodlePoly([[cx-14,cy-30],[cx+14,cy-30],[cx+14,cy-8],[cx-14,cy-8]], "#aaccdd", { fill: "#e8f4ff", seed: 51, lineWidth: 3 });
     doodleCircle(cx, cy + 8, 20, "#aaccdd", { fill: "#e8f4ff", lineWidth: 3, seed: 52 });
     doodleCircle(cx, cy + 8, 12, "#88aacc", { fill: "#cfe6ff", lineWidth: 2, seed: 53 });
-    doodleText("SPACE for a pit stop", cx, cy + 44, 13, "#bcd6ff", { shadow: false });
+    doodleText(actWord() + " for a pit stop", cx, cy + 44, 13, "#bcd6ff", { shadow: false });
   }
 }
 
@@ -1421,16 +1607,17 @@ function drawInterior() {
 
   // room-contextual hint along the bottom
   let hint = "", big = false;
-  if (cur && cur.kind === "drive") { hint = "Press SPACE to BLAST OFF! 🚀"; big = true; }
+  const ACT = actWord();
+  if (cur && cur.kind === "drive") { hint = (isTouch ? "Tap " : "Press ") + ACT + " to BLAST OFF! 🚀"; big = true; }
   else if (cur && cur.kind === "kitchen") {
     if (game.cooking) hint = "Cooking " + game.cooking.meal + "...";
-    else if (game.pantry.length) { const mi = mainIngredient(game.pantry); hint = "SPACE to cook " + mi.dish + " (" + mi.boon + ")"; }
+    else if (game.pantry.length) { const mi = mainIngredient(game.pantry); hint = ACT + " to cook " + mi.dish + " (" + mi.boon + ")"; }
     else hint = "Bring ingredients from space to cook!";
   }
-  else if (cur && cur.kind === "shoot") hint = "Press SPACE for target practice ⚡";
-  else if (cur && cur.kind === "bed") hint = "Rest to heal — SPACE for a quick nap 💤";
-  else if (cur && cur.kind === "toilet") hint = "Press SPACE for a pit stop 💨";
-  else hint = game.hasFlown ? "Walk into a room to use it" : "Walk to the Driver Room and press SPACE to fly!";
+  else if (cur && cur.kind === "shoot") hint = (isTouch ? "Tap " : "Press ") + ACT + " for target practice ⚡";
+  else if (cur && cur.kind === "bed") hint = "Rest to heal — " + ACT + " for a quick nap 💤";
+  else if (cur && cur.kind === "toilet") hint = (isTouch ? "Tap " : "Press ") + ACT + " for a pit stop 💨";
+  else hint = game.hasFlown ? "Walk into a room to use it" : "Walk to the Driver Room and " + (isTouch ? "tap " : "press ") + ACT + " to fly!";
 
   if (big) {
     const col = Math.floor(frame / 22) % 2 === 0 ? "#9bff9b" : "#7be88a";
@@ -1456,7 +1643,7 @@ function drawGameOver() {
   doodleText("Score: " + game.score, VW / 2, VH / 2 + 10, 40, "#ffd23f", { stroke: "#7a5000", strokeWidth: 5 });
   doodleText("Planets explored: " + game.planetsExplored + "/" + game.planets.length, VW / 2, VH / 2 + 55, 22, "#9bd6ff");
   if (Math.floor(frame / 30) % 2 === 0)
-    doodleText("Press ENTER to play again", VW / 2, VH / 2 + 120, 26, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
+    doodleText(isTouch ? "Tap to play again" : "Press ENTER to play again", VW / 2, VH / 2 + 120, 26, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
 }
 
 /* Static-ish star backdrop for menus (uses screen-space scatter). */
@@ -1509,6 +1696,7 @@ function render() {
 
 function loop() {
   update();
+  syncTouchUI();
   render();
   requestAnimationFrame(loop);
 }
