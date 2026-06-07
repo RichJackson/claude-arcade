@@ -183,6 +183,16 @@ const INGREDIENTS = [
   { key: "egg",      name: "Space Egg", emoji: "🥚", color: "#fff0d6", dish: "Big Omelette",  boon: "Speed 💨" },
 ];
 
+// THE GRAND QUEST: gather the four ingredients for the legendary Magic Custard
+// Pie. They hide inside presents out in space — collect all four to WIN and
+// throw a custard-pie party with all your friends!
+const PIE_RECIPE = [
+  { key: "biscuit", name: "Biscuit",              emoji: "🍪", color: "#c98a3c" },
+  { key: "cream",   name: "Whipped Cream",        emoji: "🍦", color: "#ffe9c7" },
+  { key: "custard", name: "Birds Custard Powder", emoji: "📦", color: "#ffd23f" },
+  { key: "milk",    name: "Milk",                 emoji: "🥛", color: "#eaf4ff" },
+];
+
 const COLORS = {
   hullPink:  "#ff7bc6",
   hullDark:  "#c23e8e",
@@ -358,6 +368,7 @@ const Sound = {
   bad()      { this.blip(160, 0.30, "square", 0.10, 70); },
   explore()  { this.blip(440, 0.10, "sine", 0.08); setTimeout(() => this.blip(660, 0.12, "sine", 0.08), 80); },
   ouch()     { this.blip(220, 0.18, "square", 0.10, 110); },
+  win()      { [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => this.blip(f, 0.22, "triangle", 0.09), i * 130)); },
 };
 
 /* ----------------------------- Input ------------------------------------ */
@@ -380,7 +391,7 @@ window.addEventListener("keyup", (e) => {
 canvas.addEventListener("mousedown", () => { Sound.ensure(); pressed["Enter"] = true; });
 // tap the screen to start / continue on the title and game-over screens
 canvas.addEventListener("touchstart", (e) => {
-  if (state === STATE.TITLE || state === STATE.GAMEOVER) { e.preventDefault(); Sound.ensure(); pressed["Enter"] = true; }
+  if (state === STATE.TITLE || state === STATE.GAMEOVER || state === STATE.WIN) { e.preventDefault(); Sound.ensure(); pressed["Enter"] = true; }
 }, { passive: false });
 function consume(key) { if (pressed[key]) { pressed[key] = false; return true; } return false; }
 function clearPressed() { for (const k in pressed) pressed[k] = false; }
@@ -450,6 +461,7 @@ function syncTouchUI() {
   if (state === STATE.PLAY) { key = " "; label = "FIRE"; }
   else if (state === STATE.SHIP) { key = "Enter"; label = "USE"; }
   else if (state === STATE.SELECT) { key = "Enter"; label = "GO"; }
+  else if (state === STATE.WIN || state === STATE.GAMEOVER) { key = "Enter"; label = "AGAIN"; }
   primaryKey = key;
   if (fireBtn && fireBtn.textContent !== label) fireBtn.textContent = label;
   const mIcon = Sound.muted ? "🔇" : "🔊";
@@ -500,6 +512,7 @@ let pauseFrom = STATE.PLAY; // which state to resume to after a pause
 let selIndex = 0;
 let frame = 0;
 let screenTint = null; // {color, life, max}
+let winConfetti = [];  // celebratory confetti for the WIN screen
 
 const game = {
   ship: null,
@@ -525,6 +538,7 @@ const game = {
   pantry: [],             // ingredient keys you've collected from presents
   cooking: null,          // { ticks, total, count, meal } while a meal cooks
   targetHits: 0,          // progress in the Shooting Room target practice
+  pie: {},                // Magic Custard Pie quest: key -> true once collected
 };
 
 /* ----------------------------- Ship interior layout ---------------------- */
@@ -589,6 +603,8 @@ function startGame(charIdx) {
   game.pantry = [];
   game.cooking = null;
   game.targetHits = 0;
+  game.pie = {};
+  winConfetti = [];
   state = STATE.SHIP;
   clearPressed();
 }
@@ -702,7 +718,52 @@ const BAD_EFFECTS = [
   { msg: "Monster ambush!", apply: (s) => { for (let i = 0; i < 3; i++) spawnMonster(null, s.x + rand(-120,120), s.y + rand(-120,120)); } },
 ];
 
+// ---- Magic Custard Pie quest ----
+function pieRemaining() { return PIE_RECIPE.filter((g) => !game.pie[g.key]); }
+function pieCollected() { return PIE_RECIPE.length - pieRemaining().length; }
+
+function collectPieIngredient(p) {
+  const missing = pieRemaining();
+  if (!missing.length) return null;
+  const g = pick(missing);
+  game.pie[g.key] = true;
+  const have = pieCollected();
+  floatText(p.x, p.y - 10, "Found " + g.name + "! " + g.emoji + " (" + have + "/" + PIE_RECIPE.length + ")", "#ffd23f");
+  burst(p.x, p.y, g.color, 20, 6);
+  screenTint = { color: "rgba(255,210,63,0.22)", life: 28, max: 28 };
+  Sound.good();
+  if (pieRemaining().length === 0) triggerWin();
+  return g;
+}
+
+function triggerWin() {
+  game.score += 1000;
+  winConfetti = makeConfetti();
+  state = STATE.WIN;
+  clearPressed();
+  Sound.win();
+}
+
+function makeConfetti() {
+  const cols = ["#ff6b6b", "#ffd23f", "#7bff9b", "#5d9bff", "#ff7bc6", "#9b6bff", "#4dd2ff"];
+  const bits = [];
+  for (let i = 0; i < 90; i++) {
+    bits.push({
+      x: rand(0, VW), y: rand(-VH, 0),
+      vy: rand(1.5, 4.5), vx: rand(-0.8, 0.8),
+      w: rand(6, 12), h: rand(8, 16),
+      color: pick(cols), rot: rand(0, TAU), rotV: rand(-0.2, 0.2),
+    });
+  }
+  return bits;
+}
+
 function openPresent(p) {
+  // a gift might hold a piece of the Magic Custard Pie recipe
+  if (pieRemaining().length && Math.random() < 0.4) {
+    collectPieIngredient(p);
+    return;
+  }
   const good = Math.random() < 0.62;
   const fx = good ? pick(GOOD_EFFECTS) : pick(BAD_EFFECTS);
   const ret = fx.apply(game.ship);   // effects may return a custom message
@@ -1309,12 +1370,29 @@ function drawHeart(x, y, r, filled) {
   ctx.restore();
 }
 
+/* Magic Custard Pie recipe tracker — the four ingredients with checkmarks. */
+function drawPieTracker(cx, y) {
+  doodleText("🥧 Magic Custard Pie  " + pieCollected() + "/" + PIE_RECIPE.length, cx, y, 15, "#ffd23f", { stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
+  const n = PIE_RECIPE.length, sp = 36;
+  const startX = cx - (sp * (n - 1)) / 2;
+  for (let i = 0; i < n; i++) {
+    const g = PIE_RECIPE[i];
+    const have = !!game.pie[g.key];
+    ctx.globalAlpha = have ? 1 : 0.3;
+    doodleText(g.emoji, startX + i * sp, y + 24, 22, "#fff", { shadow: false });
+    ctx.globalAlpha = 1;
+    if (have) doodleText("✓", startX + i * sp + 13, y + 16, 13, "#7bff9b", { shadow: false });
+  }
+}
+
 function drawHUD() {
   const s = game.ship;
   // hearts
   for (let i = 0; i < s.maxhp; i++) {
     drawHeart(28 + i * 26, 26, 9, i < s.hp);
   }
+  // the grand quest tracker, top-center
+  drawPieTracker(VW / 2, 24);
   // character name
   doodleText(s.char.name, 28, 52, 16, s.char.color, { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
 
@@ -1428,7 +1506,7 @@ function drawTitle() {
 
   doodleText("SPACE", cx, cy - 70 + Math.sin(frame * 0.04) * 4, Math.min(110, VW * 0.16), COLORS.hullPink, { stroke: "#5a1030", strokeWidth: 8 });
   doodleText("WARRIORS", cx, cy + 30 + Math.sin(frame * 0.04 + 1) * 4, Math.min(96, VW * 0.14), "#ffd23f", { stroke: "#7a5000", strokeWidth: 8 });
-  doodleText("shoot monsters · explore planets · find presents", cx, cy + 110, 20, "#bcb6f0");
+  doodleText("find 4 magic ingredients · bake the Custard Pie! 🥧", cx, cy + 110, 20, "#bcb6f0");
   if (Math.floor(frame / 30) % 2 === 0)
     doodleText(isTouch ? "Tap to start" : "Press ENTER to start", cx, cy + 170, 26, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
   doodleText("...but not all gifts are good!", cx, cy + 215, 16, "#ff9bbf");
@@ -1599,7 +1677,8 @@ function drawInterior() {
   ctx.restore();
 
   // ---- screen-space UI ----
-  doodleText("Inside the Ship", VW / 2, 40, 34, "#ffd23f", { stroke: "#7a5000", strokeWidth: 5 });
+  doodleText("Inside the Ship", VW / 2, 36, 32, "#ffd23f", { stroke: "#7a5000", strokeWidth: 5 });
+  drawPieTracker(VW / 2, 72);
   // health hearts so you can watch yourself heal
   for (let i = 0; i < game.ship.maxhp; i++) drawHeart(28 + i * 26, 28, 9, i < game.ship.hp);
   doodleText(game.ship.char.name, 28, 56, 16, game.ship.char.color, { align: "left", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 });
@@ -1646,6 +1725,102 @@ function drawGameOver() {
     doodleText(isTouch ? "Tap to play again" : "Press ENTER to play again", VW / 2, VH / 2 + 120, 26, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
 }
 
+/* ----------------------------- Win screen -------------------------------- */
+/* A big doodled Magic Custard Pie on a plate. */
+function drawWinPie(cx, cy, scale) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  // plate shadow + plate
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath(); ctx.ellipse(0, 56, 132, 26, 0, 0, TAU); ctx.fill();
+  doodleCircle(0, 42, 98, "#bcbfd0", { fill: "#e6e9f5", lineWidth: 4, seed: 3 });
+  // golden crust base
+  doodlePoly([[-92, 42], [92, 42], [78, 8], [-78, 8]], "#9c6b3f", { fill: "#c98a3c", seed: 4, jitter: 2.5, lineWidth: 4 });
+  // custard dome — the star of the show
+  doodleCircle(0, 8, 80, "#e0a92e", { fill: "#ffd23f", lineWidth: 4, seed: 5, jitter: 4 });
+  doodleCircle(0, 4, 60, "#f0c64a", { fill: "#ffe27a", lineWidth: 2, seed: 6, jitter: 3 });
+  // whipped cream swirls
+  for (let i = -1; i <= 1; i++) doodleCircle(i * 38, -30, 16, "#e9d9c7", { fill: "#fff7ee", lineWidth: 2, seed: 7 + i });
+  doodleCircle(0, -48, 15, "#e9d9c7", { fill: "#fff7ee", lineWidth: 2, seed: 9 });
+  // cherry on top
+  doodleCircle(0, -64, 9, "#9c1f2e", { fill: "#ff4d6d", lineWidth: 2, seed: 10 });
+  doodleLine(0, -72, 6, -86, "#5a3a1a", 3, 11);
+  // sparkles
+  ctx.fillStyle = "#fff";
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * TAU + frame * 0.03;
+    ctx.globalAlpha = 0.4 + 0.5 * Math.sin(frame * 0.1 + i);
+    ctx.beginPath(); ctx.arc(Math.cos(a) * 104, 8 + Math.sin(a) * 60, 2.6, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/* One friend doing a happy little dance. */
+function drawDancer(x, baseY, ch, phase, r) {
+  const t = frame * 0.14 + phase;
+  const hop = Math.abs(Math.sin(t)) * 22;
+  const tilt = Math.sin(t) * 0.22;
+  ctx.save();
+  ctx.translate(x, baseY - hop);
+  ctx.rotate(tilt);
+  // kicking legs
+  const kick = Math.sin(t * 2) * 8;
+  doodleLine(-r * 0.4, r * 0.8, -r * 0.5, r * 1.5 + kick, "#3a2d2d", 5, phase + 1);
+  doodleLine(r * 0.4, r * 0.8, r * 0.5, r * 1.5 - kick, "#3a2d2d", 5, phase + 2);
+  // waving arms
+  const wave = Math.sin(t * 2 + 1) * 0.5;
+  doodleLine(-r * 0.7, 0, -r * 1.4, -r * 0.8 + wave * r * 0.4, ch.color, 5, phase + 3);
+  doodleLine(r * 0.7, 0, r * 1.4, -r * 0.8 - wave * r * 0.4, ch.color, 5, phase + 4);
+  // a little slice of pie in one hand
+  doodlePoly([[-r * 1.5, -r * 0.7], [-r * 1.05, -r * 0.95], [-r * 1.15, -r * 0.5]], "#9c6b3f", { fill: "#ffd23f", seed: phase + 8, jitter: 1.5, lineWidth: 2 });
+  drawCharFace(0, 0, r, ch, frame + phase * 40);
+  ctx.restore();
+}
+
+function drawWin() {
+  drawStarsStatic();
+  ctx.fillStyle = "rgba(10,6,32,0.5)";
+  ctx.fillRect(0, 0, VW, VH);
+
+  // confetti rain
+  for (const c of winConfetti) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    ctx.fillStyle = c.color;
+    ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+    ctx.restore();
+  }
+
+  const cx = VW / 2, cy = VH / 2;
+  doodleText("YOU WIN!", cx, Math.min(84, VH * 0.15), Math.min(72, VW * 0.13), "#ffd23f", { stroke: "#7a5000", strokeWidth: 7 });
+  doodleText("The Magic Custard Pie is complete! 🥧", cx, Math.min(136, VH * 0.25), Math.min(24, VW * 0.045), "#fff0a0");
+
+  // the pie, centered
+  const pieScale = Math.min(1.05, VW / 820, VH / 660);
+  drawWinPie(cx, cy + 14, pieScale);
+
+  // all four friends dancing around it
+  const ringR = Math.min(230, VW * 0.36);
+  const positions = [
+    [cx - ringR,         cy + 24],
+    [cx - ringR * 0.44,  cy + 96],
+    [cx + ringR * 0.44,  cy + 96],
+    [cx + ringR,         cy + 24],
+  ];
+  const dr = Math.min(36, VW * 0.05);
+  for (let i = 0; i < CHARACTERS.length; i++) {
+    const [px, py] = positions[i];
+    drawDancer(px, py, CHARACTERS[i], i * 1.7, dr);
+  }
+
+  doodleText("Score: " + game.score, cx, VH - 86, 26, "#ffe97a", { stroke: "rgba(0,0,0,0.6)", strokeWidth: 4 });
+  if (Math.floor(frame / 30) % 2 === 0)
+    doodleText(isTouch ? "Tap to play again" : "Press ENTER to play again", cx, VH - 42, 24, "#fff", { stroke: "rgba(0,0,0,0.5)", strokeWidth: 4 });
+}
+
 /* Static-ish star backdrop for menus (uses screen-space scatter). */
 let _menuStars = null;
 function drawStarsStatic() {
@@ -1679,6 +1854,12 @@ function update() {
     if (consume("p") || consume("P")) state = pauseFrom;
   } else if (state === STATE.GAMEOVER) {
     if (consume("Enter")) { state = STATE.SELECT; clearPressed(); }
+  } else if (state === STATE.WIN) {
+    for (const c of winConfetti) {
+      c.y += c.vy; c.x += c.vx; c.rot += c.rotV;
+      if (c.y > VH + 20) { c.y = -20; c.x = rand(0, VW); }
+    }
+    if (consume("Enter")) { state = STATE.SELECT; clearPressed(); }
   }
 }
 
@@ -1691,6 +1872,7 @@ function render() {
     case STATE.PLAY: drawPlay(); break;
     case STATE.PAUSE: drawPause(); break;
     case STATE.GAMEOVER: drawGameOver(); break;
+    case STATE.WIN: drawWin(); break;
   }
 }
 

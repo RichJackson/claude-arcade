@@ -12,6 +12,10 @@ monsters, explore 18 named planets, and open presents — but not all gifts are 
 Walk around the ship interior to rest, train, and **cook ingredients into meals** that
 grant different power-ups depending on the recipe.
 
+**The goal:** hunt down the four ingredients for the legendary **Magic Custard Pie**
+(biscuit, whipped cream, Birds custard powder & milk), hidden inside presents out in
+space. Collect all four to **win** and throw a custard-pie party with all your friends! 🥧
+
 - **Play:** https://richjackson.github.io/claude-arcade/space-warriors.html
 - **Controls (keyboard):** Arrows / WASD = move · Space = shoot / use room · B = fly home · P = pause · M = mute
 - **Controls (mobile):** on-screen D-pad to move, **FIRE** to shoot, **USE** for room actions, **HOME** to fly back, plus pause/mute — touch controls appear automatically on phones & tablets.
