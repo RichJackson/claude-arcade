@@ -1,49 +1,60 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Skeleton Graveyards</title>
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background: #05070d;
-    overflow: hidden;
-    font-family: "Comic Sans MS", "Comic Sans", "Marker Felt", "Segoe Print", cursive, sans-serif;
-    color: #fff;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  #game {
-    display: block;
-    width: 100vw;
-    height: 100vh;
-    background: #0a0e18;
-    touch-action: none;
-  }
-  #footer {
-    position: fixed;
-    bottom: 8px;
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-size: 13px;
-    color: #8fa6d8;
-    pointer-events: none;
-    letter-spacing: 0.5px;
-    text-shadow: 0 1px 2px #000;
-  }
-  body.touch #footer { display: none; }
-</style>
-</head>
-<body>
-<canvas id="game"></canvas>
-<div id="footer">WASD / Arrows = move &nbsp;·&nbsp; Lure enemies into the ⚡Electrifier &nbsp;·&nbsp; 💾 = save &nbsp;·&nbsp; P = pause &nbsp;·&nbsp; M = mute</div>
-<script>
-"use strict";
-/* =========================================================================
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Skeleton Graveyards</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #05070d;
+        overflow: hidden;
+        font-family:
+          "Comic Sans MS", "Comic Sans", "Marker Felt", "Segoe Print", cursive,
+          sans-serif;
+        color: #fff;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #game {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        background: #0a0e18;
+        touch-action: none;
+      }
+      #footer {
+        position: fixed;
+        bottom: 8px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 13px;
+        color: #8fa6d8;
+        pointer-events: none;
+        letter-spacing: 0.5px;
+        text-shadow: 0 1px 2px #000;
+      }
+      body.touch #footer {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="footer">
+      WASD / Arrows = move &nbsp;·&nbsp; Lure enemies into the ⚡Electrifier
+      &nbsp;·&nbsp; 💾 = save &nbsp;·&nbsp; P = pause &nbsp;·&nbsp; M = mute
+    </div>
+    <script>
+      "use strict";
+      /* =========================================================================
    SKELETON GRAVEYARDS — a single-file browser game
    You were walking along when you got ZAPPED — now you're a skeleton. Win
    battles against other skeletons to upgrade your army! Lure the enemy
@@ -60,1293 +71,2015 @@
      - save your progress
    ========================================================================= */
 
-/* ----------------------------- Config ----------------------------------- */
-const CFG = {
-  WORLD_W: 2000,
-  WORLD_H: 1500,
-  PLAYER_SPEED: 3.4,
-  PLAYER_MAX_BONES: 6,        // your personal health once your followers are gone
-  ARMY_TO_OPEN_GATE: 15,      // you + followers needed to unlock the exit gate
-  FOLLOW_SPACING: 16,         // trail distance between army members
-  MAX_DRAWN_FOLLOWERS: 40,    // visual cap (count keeps rising past this)
-  ELECTRIFIER_R: 86,          // base zap radius (shrinks in later graveyards)
-  HIT_COOLDOWN: 55,           // frames you're invulnerable after losing a bone
-  COMBO_WINDOW: 150,          // frames a chain stays alive between zaps
-  SPEED_TIME: 360,            // power-up durations (frames)
-  MAGNET_TIME: 320,
-  POWERUPS_PER_GY: 3,
-};
-const SAVE_KEY = "skeleton-graveyards-save-v1";
+      /* ----------------------------- Config ----------------------------------- */
+      const CFG = {
+        WORLD_W: 2000,
+        WORLD_H: 1500,
+        PLAYER_SPEED: 3.4,
+        PLAYER_MAX_BONES: 6, // your personal health once your followers are gone
+        ARMY_TO_OPEN_GATE: 15, // you + followers needed to unlock the exit gate
+        FOLLOW_SPACING: 16, // trail distance between army members
+        MAX_DRAWN_FOLLOWERS: 40, // visual cap (count keeps rising past this)
+        ELECTRIFIER_R: 86, // base zap radius (shrinks in later graveyards)
+        HIT_COOLDOWN: 55, // frames you're invulnerable after losing a bone
+        COMBO_WINDOW: 150, // frames a chain stays alive between zaps
+        SPEED_TIME: 360, // power-up durations (frames)
+        MAGNET_TIME: 320,
+        POWERUPS_PER_GY: 3,
+      };
+      const SAVE_KEY = "skeleton-graveyards-save-v1";
 
-/* ----------------------------- Badges ----------------------------------- */
-/* Every badge has an id (saved), an icon, a short name and a how-to. They
+      /* ----------------------------- Badges ----------------------------------- */
+      /* Every badge has an id (saved), an icon, a short name and a how-to. They
    show up in the title-screen trophy gallery, locked or unlocked. */
-const BADGES = [
-  { id: "first",    icon: "⚡", name: "First Zap",     desc: "Zap your first skeleton" },
-  { id: "army15",   icon: "🚪", name: "Gatecrasher",   desc: "Open a graveyard gate" },
-  { id: "flawless", icon: "✨", name: "Flawless",      desc: "Clear a graveyard unhurt" },
-  { id: "lastBone", icon: "🦴", name: "Last Bone",     desc: "Survive down to 1 bone" },
-  { id: "combo5",   icon: "🔥", name: "Combo x5",      desc: "Zap 5 in one chain" },
-  { id: "combo10",  icon: "💥", name: "Combo x10",     desc: "Zap 10 in one chain" },
-  { id: "speedy",   icon: "💨", name: "Speedy Bones",  desc: "Grab a speed power-up" },
-  { id: "magnet",   icon: "🧲", name: "Magnetised",    desc: "Use a magnet power-up" },
-  { id: "shield",   icon: "🛡️", name: "Bone Shield",   desc: "Block a hit with a shield" },
-  { id: "megaArmy", icon: "👑", name: "Mega Army",     desc: "Build an army of 30" },
-  { id: "skel250",  icon: "💀", name: "250 Skeletons", desc: "Zap 250 skeletons" },
-  { id: "skel1000", icon: "☠️", name: "1000 Skeletons",desc: "Zap 1000 skeletons" },
-  { id: "gy5",      icon: "🪦", name: "5 Graveyards",  desc: "Explore 5 graveyards" },
-  { id: "gy10",     icon: "⚰️", name: "10 Graveyards", desc: "Explore 10 graveyards" },
-];
+      const BADGES = [
+        {
+          id: "first",
+          icon: "⚡",
+          name: "First Zap",
+          desc: "Zap your first skeleton",
+        },
+        {
+          id: "army15",
+          icon: "🚪",
+          name: "Gatecrasher",
+          desc: "Open a graveyard gate",
+        },
+        {
+          id: "flawless",
+          icon: "✨",
+          name: "Flawless",
+          desc: "Clear a graveyard unhurt",
+        },
+        {
+          id: "lastBone",
+          icon: "🦴",
+          name: "Last Bone",
+          desc: "Survive down to 1 bone",
+        },
+        {
+          id: "combo5",
+          icon: "🔥",
+          name: "Combo x5",
+          desc: "Zap 5 in one chain",
+        },
+        {
+          id: "combo10",
+          icon: "💥",
+          name: "Combo x10",
+          desc: "Zap 10 in one chain",
+        },
+        {
+          id: "speedy",
+          icon: "💨",
+          name: "Speedy Bones",
+          desc: "Grab a speed power-up",
+        },
+        {
+          id: "magnet",
+          icon: "🧲",
+          name: "Magnetised",
+          desc: "Use a magnet power-up",
+        },
+        {
+          id: "shield",
+          icon: "🛡️",
+          name: "Bone Shield",
+          desc: "Block a hit with a shield",
+        },
+        {
+          id: "megaArmy",
+          icon: "👑",
+          name: "Mega Army",
+          desc: "Build an army of 30",
+        },
+        {
+          id: "skel250",
+          icon: "💀",
+          name: "250 Skeletons",
+          desc: "Zap 250 skeletons",
+        },
+        {
+          id: "skel1000",
+          icon: "☠️",
+          name: "1000 Skeletons",
+          desc: "Zap 1000 skeletons",
+        },
+        {
+          id: "gy5",
+          icon: "🪦",
+          name: "5 Graveyards",
+          desc: "Explore 5 graveyards",
+        },
+        {
+          id: "gy10",
+          icon: "⚰️",
+          name: "10 Graveyards",
+          desc: "Explore 10 graveyards",
+        },
+      ];
 
-/* ----------------------------- Canvas ----------------------------------- */
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-let VW = 0, VH = 0, DPR = 1;
-function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  VW = window.innerWidth;
-  VH = window.innerHeight;
-  canvas.width = Math.floor(VW * DPR);
-  canvas.height = Math.floor(VH * DPR);
-  canvas.style.width = VW + "px";
-  canvas.style.height = VH + "px";
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-}
-window.addEventListener("resize", resize);
-resize();
+      /* ----------------------------- Canvas ----------------------------------- */
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      let VW = 0,
+        VH = 0,
+        DPR = 1;
+      function resize() {
+        DPR = Math.min(window.devicePixelRatio || 1, 2);
+        VW = window.innerWidth;
+        VH = window.innerHeight;
+        canvas.width = Math.floor(VW * DPR);
+        canvas.height = Math.floor(VH * DPR);
+        canvas.style.width = VW + "px";
+        canvas.style.height = VH + "px";
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+      window.addEventListener("resize", resize);
+      resize();
 
-/* ----------------------------- Utilities -------------------------------- */
-const rand = (a, b) => a + Math.random() * (b - a);
-const randi = (a, b) => Math.floor(rand(a, b + 1));
-const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-const lerp = (a, b, t) => a + (b - a) * t;
-const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+      /* ----------------------------- Utilities -------------------------------- */
+      const rand = (a, b) => a + Math.random() * (b - a);
+      const randi = (a, b) => Math.floor(rand(a, b + 1));
+      const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 
-/* ----------------------------- Sound (WebAudio) ------------------------- */
-const Sound = {
-  ctx: null, muted: false,
-  ensure() {
-    if (!this.ctx) {
-      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
-      catch (e) { this.ctx = null; }
-    }
-    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
-  },
-  blip(freq, dur, type, vol) {
-    if (this.muted || !this.ctx) return;
-    const t = this.ctx.currentTime;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    o.type = type || "square";
-    o.frequency.setValueAtTime(freq, t);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol || 0.18, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.12));
-    o.connect(g); g.connect(this.ctx.destination);
-    o.start(t); o.stop(t + (dur || 0.12));
-  },
-  zap() {  // electrifier conversion — rising spark
-    if (this.muted || !this.ctx) return;
-    const t = this.ctx.currentTime;
-    const o = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    o.type = "sawtooth";
-    o.frequency.setValueAtTime(180, t);
-    o.frequency.exponentialRampToValueAtTime(900, t + 0.18);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
-    o.connect(g); g.connect(this.ctx.destination);
-    o.start(t); o.stop(t + 0.24);
-  },
-  hurt() { this.blip(140, 0.22, "sawtooth", 0.22); },
-  gate() { this.blip(523, 0.1, "triangle", 0.2); setTimeout(() => this.blip(784, 0.18, "triangle", 0.2), 110); },
-  badge() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.blip(f, 0.16, "triangle", 0.2), i * 90)); },
-};
+      /* ----------------------------- Sound (WebAudio) ------------------------- */
+      const Sound = {
+        ctx: null,
+        muted: false,
+        ensure() {
+          if (!this.ctx) {
+            try {
+              this.ctx = new (
+                window.AudioContext || window.webkitAudioContext
+              )();
+            } catch (e) {
+              this.ctx = null;
+            }
+          }
+          if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+        },
+        blip(freq, dur, type, vol) {
+          if (this.muted || !this.ctx) return;
+          const t = this.ctx.currentTime;
+          const o = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          o.type = type || "square";
+          o.frequency.setValueAtTime(freq, t);
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(vol || 0.18, t + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.12));
+          o.connect(g);
+          g.connect(this.ctx.destination);
+          o.start(t);
+          o.stop(t + (dur || 0.12));
+        },
+        zap() {
+          // electrifier conversion — rising spark
+          if (this.muted || !this.ctx) return;
+          const t = this.ctx.currentTime;
+          const o = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          o.type = "sawtooth";
+          o.frequency.setValueAtTime(180, t);
+          o.frequency.exponentialRampToValueAtTime(900, t + 0.18);
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+          o.connect(g);
+          g.connect(this.ctx.destination);
+          o.start(t);
+          o.stop(t + 0.24);
+        },
+        hurt() {
+          this.blip(140, 0.22, "sawtooth", 0.22);
+        },
+        gate() {
+          this.blip(523, 0.1, "triangle", 0.2);
+          setTimeout(() => this.blip(784, 0.18, "triangle", 0.2), 110);
+        },
+        badge() {
+          [523, 659, 784, 1046].forEach((f, i) =>
+            setTimeout(() => this.blip(f, 0.16, "triangle", 0.2), i * 90),
+          );
+        },
+      };
 
-/* ----------------------------- Input ------------------------------------ */
-const keys = {};
-const pressed = {};
-window.addEventListener("keydown", (e) => {
-  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
-  if (!keys[e.key]) pressed[e.key] = true;
-  keys[e.key] = true;
-  Sound.ensure();
-  if (e.key === "m" || e.key === "M") { Sound.muted = !Sound.muted; }
-  if (e.key === "p" || e.key === "P") { if (state === STATE.PLAY) state = STATE.PAUSE; else if (state === STATE.PAUSE) state = STATE.PLAY; }
-});
-window.addEventListener("keyup", (e) => { keys[e.key] = false; });
+      /* ----------------------------- Input ------------------------------------ */
+      const keys = {};
+      const pressed = {};
+      window.addEventListener("keydown", (e) => {
+        if (
+          ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(
+            e.key,
+          )
+        )
+          e.preventDefault();
+        if (!keys[e.key]) pressed[e.key] = true;
+        keys[e.key] = true;
+        Sound.ensure();
+        if (e.key === "m" || e.key === "M") {
+          Sound.muted = !Sound.muted;
+        }
+        if (e.key === "p" || e.key === "P") {
+          if (state === STATE.PLAY) state = STATE.PAUSE;
+          else if (state === STATE.PAUSE) state = STATE.PLAY;
+        }
+      });
+      window.addEventListener("keyup", (e) => {
+        keys[e.key] = false;
+      });
 
-/* on-screen buttons (canvas-space rects) registered each frame for click/tap */
-let uiButtons = [];
-function addButton(id, x, y, w, h, label, opts) {
-  uiButtons.push(Object.assign({ id, x, y, w, h, label }, opts || {}));
-}
-function hitButton(px, py) {
-  for (let i = uiButtons.length - 1; i >= 0; i--) {
-    const b = uiButtons[i];
-    if (!b.disabled && px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) return b;
-  }
-  return null;
-}
-function handlePoint(px, py) {
-  const b = hitButton(px, py);
-  if (b) { Sound.ensure(); onButton(b.id); return true; }
-  return false;
-}
-canvas.addEventListener("mousedown", (e) => {
-  const r = canvas.getBoundingClientRect();
-  if (handlePoint(e.clientX - r.left, e.clientY - r.top)) e.preventDefault();
-});
+      /* on-screen buttons (canvas-space rects) registered each frame for click/tap */
+      let uiButtons = [];
+      function addButton(id, x, y, w, h, label, opts) {
+        uiButtons.push(Object.assign({ id, x, y, w, h, label }, opts || {}));
+      }
+      function hitButton(px, py) {
+        for (let i = uiButtons.length - 1; i >= 0; i--) {
+          const b = uiButtons[i];
+          if (
+            !b.disabled &&
+            px >= b.x &&
+            px <= b.x + b.w &&
+            py >= b.y &&
+            py <= b.y + b.h
+          )
+            return b;
+        }
+        return null;
+      }
+      function handlePoint(px, py) {
+        const b = hitButton(px, py);
+        if (b) {
+          Sound.ensure();
+          onButton(b.id);
+          return true;
+        }
+        return false;
+      }
+      canvas.addEventListener("mousedown", (e) => {
+        const r = canvas.getBoundingClientRect();
+        if (handlePoint(e.clientX - r.left, e.clientY - r.top))
+          e.preventDefault();
+      });
 
-/* ----------------------------- Touch (single stick + buttons) ----------- */
-const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
-const stick = { active: false, ox: 0, oy: 0, dx: 0, dy: 0, id: null };
-const STICK_MAX = 64;
-function stickVec() {
-  let dx = stick.dx, dy = stick.dy;
-  const len = Math.hypot(dx, dy);
-  if (len > STICK_MAX) { dx = dx / len * STICK_MAX; dy = dy / len * STICK_MAX; }
-  return { x: dx, y: dy, len: Math.min(len, STICK_MAX) };
-}
-if (isTouch) {
-  document.body.classList.add("touch");
-  const tp = (t) => { const r = canvas.getBoundingClientRect(); return { x: t.clientX - r.left, y: t.clientY - r.top }; };
-  canvas.addEventListener("touchstart", (e) => {
-    Sound.ensure();
-    for (const t of e.changedTouches) {
-      const p = tp(t);
-      if (handlePoint(p.x, p.y)) continue;          // a UI button was tapped
-      if (state !== STATE.PLAY) continue;
-      if (stick.active) continue;
-      stick.active = true; stick.id = t.identifier; stick.ox = p.x; stick.oy = p.y; stick.dx = 0; stick.dy = 0;
-    }
-    e.preventDefault();
-  }, { passive: false });
-  canvas.addEventListener("touchmove", (e) => {
-    for (const t of e.changedTouches) {
-      if (stick.active && stick.id === t.identifier) { const p = tp(t); stick.dx = p.x - stick.ox; stick.dy = p.y - stick.oy; }
-    }
-    e.preventDefault();
-  }, { passive: false });
-  const end = (e) => {
-    for (const t of e.changedTouches) {
-      if (stick.active && stick.id === t.identifier) { stick.active = false; stick.id = null; stick.dx = 0; stick.dy = 0; }
-    }
-    e.preventDefault();
-  };
-  canvas.addEventListener("touchend", end, { passive: false });
-  canvas.addEventListener("touchcancel", end, { passive: false });
-}
+      /* ----------------------------- Touch (single stick + buttons) ----------- */
+      const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+      const stick = { active: false, ox: 0, oy: 0, dx: 0, dy: 0, id: null };
+      const STICK_MAX = 64;
+      function stickVec() {
+        let dx = stick.dx,
+          dy = stick.dy;
+        const len = Math.hypot(dx, dy);
+        if (len > STICK_MAX) {
+          dx = (dx / len) * STICK_MAX;
+          dy = (dy / len) * STICK_MAX;
+        }
+        return { x: dx, y: dy, len: Math.min(len, STICK_MAX) };
+      }
+      if (isTouch) {
+        document.body.classList.add("touch");
+        const tp = (t) => {
+          const r = canvas.getBoundingClientRect();
+          return { x: t.clientX - r.left, y: t.clientY - r.top };
+        };
+        canvas.addEventListener(
+          "touchstart",
+          (e) => {
+            Sound.ensure();
+            for (const t of e.changedTouches) {
+              const p = tp(t);
+              if (handlePoint(p.x, p.y)) continue; // a UI button was tapped
+              if (state !== STATE.PLAY) continue;
+              if (stick.active) continue;
+              stick.active = true;
+              stick.id = t.identifier;
+              stick.ox = p.x;
+              stick.oy = p.y;
+              stick.dx = 0;
+              stick.dy = 0;
+            }
+            e.preventDefault();
+          },
+          { passive: false },
+        );
+        canvas.addEventListener(
+          "touchmove",
+          (e) => {
+            for (const t of e.changedTouches) {
+              if (stick.active && stick.id === t.identifier) {
+                const p = tp(t);
+                stick.dx = p.x - stick.ox;
+                stick.dy = p.y - stick.oy;
+              }
+            }
+            e.preventDefault();
+          },
+          { passive: false },
+        );
+        const end = (e) => {
+          for (const t of e.changedTouches) {
+            if (stick.active && stick.id === t.identifier) {
+              stick.active = false;
+              stick.id = null;
+              stick.dx = 0;
+              stick.dy = 0;
+            }
+          }
+          e.preventDefault();
+        };
+        canvas.addEventListener("touchend", end, { passive: false });
+        canvas.addEventListener("touchcancel", end, { passive: false });
+      }
 
-/* ----------------------------- Game state ------------------------------- */
-const STATE = { TITLE: "title", PLAY: "play", PAUSE: "pause", OVER: "over", WIN: "win", BADGES: "badges" };
-let state = STATE.TITLE;
-let frame = 0;
-let screenShake = 0;
-let toast = null;          // { text, sub, t }
-let badgeShow = null;      // { icon, name, t }
+      /* ----------------------------- Game state ------------------------------- */
+      const STATE = {
+        TITLE: "title",
+        PLAY: "play",
+        PAUSE: "pause",
+        OVER: "over",
+        WIN: "win",
+        BADGES: "badges",
+      };
+      let state = STATE.TITLE;
+      let frame = 0;
+      let screenShake = 0;
+      let toast = null; // { text, sub, t }
+      let badgeShow = null; // { icon, name, t }
 
-const game = {
-  player: null,
-  trail: [],               // recorded positions for the army to follow
-  followers: [],           // visual army members trailing the player
-  enemies: [],
-  particles: [],
-  floats: [],              // floating text pops (combos, pickups)
-  powerups: [],            // collectible toys in the graveyard
-  graves: [],
-  electrifier: null,       // { x, y, charge }
-  gate: null,              // { x, y, open }
-  cam: { x: 0, y: 0 },
-  // moment-to-moment fun
-  combo: 0,                // current zap chain
-  comboT: 0,               // frames left on the chain
-  speedT: 0,               // speed power-up timer
-  magnetT: 0,              // magnet power-up timer
-  shield: false,           // shield power-up held
-  hitsThisGY: 0,           // hits taken in the current graveyard (for Flawless)
-  // progression / save data
-  army: 1,                 // total skeletons in your group (you + followers)
-  bones: CFG.PLAYER_MAX_BONES,
-  totalConverted: 0,       // lifetime skeletons zapped — drives the 250 badge
-  graveyard: 1,            // current graveyard number — drives the 5 badge
-  badges: {},              // { name: true }
-};
+      const game = {
+        player: null,
+        trail: [], // recorded positions for the army to follow
+        followers: [], // visual army members trailing the player
+        enemies: [],
+        particles: [],
+        floats: [], // floating text pops (combos, pickups)
+        powerups: [], // collectible toys in the graveyard
+        graves: [],
+        electrifier: null, // { x, y, charge }
+        gate: null, // { x, y, open }
+        cam: { x: 0, y: 0 },
+        // moment-to-moment fun
+        combo: 0, // current zap chain
+        comboT: 0, // frames left on the chain
+        speedT: 0, // speed power-up timer
+        magnetT: 0, // magnet power-up timer
+        shield: false, // shield power-up held
+        hitsThisGY: 0, // hits taken in the current graveyard (for Flawless)
+        // progression / save data
+        army: 1, // total skeletons in your group (you + followers)
+        bones: CFG.PLAYER_MAX_BONES,
+        totalConverted: 0, // lifetime skeletons zapped — drives the 250 badge
+        graveyard: 1, // current graveyard number — drives the 5 badge
+        badges: {}, // { name: true }
+      };
 
-/* ----------------------------- Save / Load ------------------------------ */
-function snapshot() {
-  return {
-    army: game.army,
-    bones: game.bones,
-    totalConverted: game.totalConverted,
-    graveyard: game.graveyard,
-    badges: game.badges,
-  };
-}
-function doSave(showToast) {
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot()));
-    if (showToast) { toast = { text: "Progress saved!", sub: "", t: 90 }; Sound.blip(660, 0.1, "triangle", 0.18); }
-    return true;
-  } catch (e) { return false; }
-}
-function loadSave() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) { return null; }
-}
-function hasSave() { return !!loadSave(); }
+      /* ----------------------------- Save / Load ------------------------------ */
+      function snapshot() {
+        return {
+          army: game.army,
+          bones: game.bones,
+          totalConverted: game.totalConverted,
+          graveyard: game.graveyard,
+          badges: game.badges,
+        };
+      }
+      function doSave(showToast) {
+        try {
+          localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot()));
+          if (showToast) {
+            toast = { text: "Progress saved!", sub: "", t: 90 };
+            Sound.blip(660, 0.1, "triangle", 0.18);
+          }
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+      function loadSave() {
+        try {
+          const raw = localStorage.getItem(SAVE_KEY);
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch (e) {
+          return null;
+        }
+      }
+      function hasSave() {
+        return !!loadSave();
+      }
 
-/* ----------------------------- World setup ------------------------------ */
-/* Difficulty climbs with every graveyard: more skeletons, faster, sharper
+      /* ----------------------------- World setup ------------------------------ */
+      /* Difficulty climbs with every graveyard: more skeletons, faster, sharper
    chasing, longer sight, a tighter electrifier, and a rising share of speedy
    "runner" skeletons that can nearly outrun you. */
-function difficulty(gy) {
-  const g = Math.max(1, gy);
-  return {
-    count:    Math.min(7 + Math.round(g * 3.5), 70),     // crowd grows each level
-    speedMul: 1 + (g - 1) * 0.16,                        // skeletons get faster
-    speedCap: CFG.PLAYER_SPEED * Math.min(0.6 + (g - 1) * 0.03, 1.0), // up to your speed
-    sight:    Math.min(300 + g * 34, 780),               // they spot you sooner
-    chase:    Math.min(0.07 + (g - 1) * 0.007, 0.18),    // and turn toward you harder
-    elecR:    Math.max(86 - (g - 1) * 2.2, 56),          // smaller zap zone = needs aim
-    runnerPct: clamp((g - 2) * 0.07, 0, 0.5),            // fraction that are runners
-  };
-}
-
-function makeEnemy(x, y, diff) {
-  const runner = Math.random() < diff.runnerPct;
-  const base = rand(1.0, 1.35) * diff.speedMul;
-  // normal skeletons stay (barely) outrunnable; runners can edge past you
-  const cap = runner ? CFG.PLAYER_SPEED * 1.04 : diff.speedCap;
-  const speed = clamp(runner ? base * 1.3 : base, 1.0, cap);
-  return {
-    x, y,
-    vx: 0, vy: 0,
-    kind: runner ? "runner" : "normal",
-    speed,
-    sight: diff.sight * (runner ? 1.15 : 1),
-    chase: diff.chase * (runner ? 1.25 : 1),
-    wanderA: rand(0, Math.PI * 2),
-    wanderT: randi(40, 120),
-    converting: 0,                             // >0 while being zapped
-    bob: rand(0, Math.PI * 2),
-  };
-}
-
-const POWERUP_TYPES = [
-  { type: "speed",  icon: "💨", color: "#7df0ff", label: "SPEED!" },
-  { type: "magnet", icon: "🧲", color: "#ff8ad0", label: "MAGNET!" },
-  { type: "shield", icon: "🛡️", color: "#8effc0", label: "SHIELD!" },
-  { type: "heal",   icon: "🦴", color: "#fff7a8", label: "+1 BONE" },
-];
-
-function buildGraveyard() {
-  const gy = game.graveyard;
-  const diff = difficulty(gy);
-  game.elecR = diff.elecR;
-  game.trail = [];
-  game.followers = [];
-  game.enemies = [];
-  game.particles = [];
-  game.floats = [];
-  game.powerups = [];
-  game.graves = [];
-  game.combo = 0; game.comboT = 0;
-  game.speedT = 0; game.magnetT = 0; game.shield = false;
-  game.hitsThisGY = 0;
-
-  // player starts centre
-  game.player = { x: CFG.WORLD_W / 2, y: CFG.WORLD_H / 2, dir: 1, bob: 0 };
-  for (let i = 0; i < 80; i++) game.trail.push({ x: game.player.x, y: game.player.y });
-  rebuildFollowers();
-
-  // electrifier — the conversion machine. Place it off-centre.
-  game.electrifier = { x: CFG.WORLD_W * 0.5, y: CFG.WORLD_H * 0.34, charge: 0 };
-
-  // exit gate, locked until army >= 15
-  game.gate = { x: CFG.WORLD_W * 0.5, y: 60, open: false };
-
-  // gravestones for decoration (avoid the electrifier & gate)
-  const graveCount = 26 + gy * 3;
-  for (let i = 0; i < graveCount; i++) {
-    let gx, gyy, tries = 0;
-    do {
-      gx = rand(120, CFG.WORLD_W - 120);
-      gyy = rand(160, CFG.WORLD_H - 120);
-      tries++;
-    } while (tries < 12 && (dist(gx, gyy, game.electrifier.x, game.electrifier.y) < 160 ||
-                            dist(gx, gyy, game.player.x, game.player.y) < 180));
-    game.graves.push({ x: gx, y: gyy, type: randi(0, 2), lean: rand(-0.12, 0.12) });
-  }
-
-  // enemy skeletons — more & faster each graveyard
-  for (let i = 0; i < diff.count; i++) {
-    let ex, ey, tries = 0;
-    do {
-      ex = rand(100, CFG.WORLD_W - 100);
-      ey = rand(140, CFG.WORLD_H - 100);
-      tries++;
-    } while (tries < 12 && dist(ex, ey, game.player.x, game.player.y) < 360);
-    game.enemies.push(makeEnemy(ex, ey, diff));
-  }
-
-  // power-up toys scattered around the graveyard
-  for (let i = 0; i < CFG.POWERUPS_PER_GY; i++) {
-    const def = POWERUP_TYPES[randi(0, POWERUP_TYPES.length - 1)];
-    let px, py, tries = 0;
-    do {
-      px = rand(140, CFG.WORLD_W - 140);
-      py = rand(180, CFG.WORLD_H - 140);
-      tries++;
-    } while (tries < 12 && (dist(px, py, game.electrifier.x, game.electrifier.y) < 150 ||
-                            dist(px, py, game.player.x, game.player.y) < 200));
-    game.powerups.push({ x: px, y: py, type: def.type, icon: def.icon, color: def.color, label: def.label, bob: rand(0, 6.28) });
-  }
-}
-
-function rebuildFollowers() {
-  // visual followers = army - 1 (you), capped for performance
-  const want = Math.min(game.army - 1, CFG.MAX_DRAWN_FOLLOWERS);
-  game.followers = [];
-  for (let i = 0; i < want; i++) {
-    game.followers.push({ x: game.player.x, y: game.player.y, bob: rand(0, Math.PI * 2) });
-  }
-}
-
-function newGame() {
-  game.army = 1;
-  game.bones = CFG.PLAYER_MAX_BONES;
-  game.totalConverted = 0;
-  game.graveyard = 1;
-  game.badges = {};
-  buildGraveyard();
-  state = STATE.PLAY;
-}
-function resumeGame() {
-  const s = loadSave();
-  if (!s) return;
-  game.army = s.army || 1;
-  game.bones = s.bones || CFG.PLAYER_MAX_BONES;
-  game.totalConverted = s.totalConverted || 0;
-  game.graveyard = s.graveyard || 1;
-  game.badges = s.badges || {};
-  buildGraveyard();
-  state = STATE.PLAY;
-}
-
-/* ----------------------------- Buttons dispatch ------------------------- */
-function onButton(id) {
-  switch (id) {
-    case "mute": Sound.muted = !Sound.muted; break;
-    case "new": newGame(); break;
-    case "resume": if (hasSave()) resumeGame(); break;
-    case "quit": window.location.href = "../index.html"; break;
-    case "save": doSave(true); break;
-    case "title": doSave(false); state = STATE.TITLE; break;
-    case "continue": state = STATE.PLAY; break;
-    case "again": newGame(); break;
-    case "menu": state = STATE.TITLE; break;
-    case "badges": state = STATE.BADGES; break;
-    case "back": state = STATE.TITLE; break;
-  }
-}
-
-/* ----------------------------- Particles & floats ----------------------- */
-function spark(x, y, color, n, spd) {
-  for (let i = 0; i < n; i++) {
-    const a = rand(0, Math.PI * 2);
-    const s = rand(0.5, spd || 4);
-    game.particles.push({
-      x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
-      life: randi(18, 36), max: 36, color: color || "#9fe8ff", r: rand(1.5, 3.5),
-    });
-  }
-}
-function floatText(x, y, text, color, size) {
-  game.floats.push({ x, y, text, color: color || "#ffd23f", size: size || 22, life: 60, max: 60 });
-}
-
-/* ----------------------------- Update ----------------------------------- */
-function update() {
-  frame++;
-  if (screenShake > 0) screenShake *= 0.86;
-  if (toast) { toast.t--; if (toast.t <= 0) toast = null; }
-  if (badgeShow) { badgeShow.t--; if (badgeShow.t <= 0) badgeShow = null; }
-
-  if (state !== STATE.PLAY) { updateParticles(); return; }
-
-  const p = game.player;
-
-  /* --- movement --- */
-  let mx = 0, my = 0;
-  if (keys["ArrowLeft"] || keys["a"] || keys["A"]) mx -= 1;
-  if (keys["ArrowRight"] || keys["d"] || keys["D"]) mx += 1;
-  if (keys["ArrowUp"] || keys["w"] || keys["W"]) my -= 1;
-  if (keys["ArrowDown"] || keys["s"] || keys["S"]) my += 1;
-  if (stick.active) { const v = stickVec(); if (v.len > 10) { mx += v.x; my += v.y; } }
-  const ml = Math.hypot(mx, my);
-  const spd = CFG.PLAYER_SPEED * (game.speedT > 0 ? 1.7 : 1);
-  if (ml > 0) {
-    mx /= ml; my /= ml;
-    p.x = clamp(p.x + mx * spd, 30, CFG.WORLD_W - 30);
-    p.y = clamp(p.y + my * spd, 30, CFG.WORLD_H - 30);
-    if (mx !== 0) p.dir = mx > 0 ? 1 : -1;
-    p.bob += 0.3;
-    if (game.speedT > 0 && frame % 3 === 0) spark(p.x, p.y, "#7df0ff", 1, 1.5);
-  }
-
-  /* --- record trail for the army --- */
-  game.trail.unshift({ x: p.x, y: p.y });
-  const maxTrail = CFG.FOLLOW_SPACING * (CFG.MAX_DRAWN_FOLLOWERS + 2);
-  if (game.trail.length > maxTrail) game.trail.length = maxTrail;
-  for (let i = 0; i < game.followers.length; i++) {
-    const idx = Math.min((i + 1) * CFG.FOLLOW_SPACING, game.trail.length - 1);
-    const t = game.trail[idx];
-    const f = game.followers[i];
-    f.x = lerp(f.x, t.x, 0.4); f.y = lerp(f.y, t.y, 0.4);
-    f.bob += 0.2;
-  }
-
-  /* --- electrifier --- */
-  const el = game.electrifier;
-  el.charge += 0.12;
-
-  /* --- enemies --- */
-  for (const e of game.enemies) {
-    if (e.converting > 0) { e.converting--; continue; }
-    e.bob += 0.18;
-    const dToP = dist(e.x, e.y, p.x, p.y);
-    if (game.magnetT > 0) {
-      // MAGNET! every enemy is dragged straight into the electrifier
-      const a = Math.atan2(el.y - e.y, el.x - e.x);
-      e.vx = lerp(e.vx, Math.cos(a) * (e.speed + 2.2), 0.16);
-      e.vy = lerp(e.vy, Math.sin(a) * (e.speed + 2.2), 0.16);
-    } else if (dToP < e.sight) {
-      // chase the player (this is how you lure them into the electrifier)
-      const a = Math.atan2(p.y - e.y, p.x - e.x);
-      e.vx = lerp(e.vx, Math.cos(a) * e.speed, e.chase);
-      e.vy = lerp(e.vy, Math.sin(a) * e.speed, e.chase);
-    } else {
-      // wander
-      e.wanderT--;
-      if (e.wanderT <= 0) { e.wanderA = rand(0, Math.PI * 2); e.wanderT = randi(40, 120); }
-      e.vx = lerp(e.vx, Math.cos(e.wanderA) * e.speed * 0.5, 0.04);
-      e.vy = lerp(e.vy, Math.sin(e.wanderA) * e.speed * 0.5, 0.04);
-    }
-    e.x = clamp(e.x + e.vx, 30, CFG.WORLD_W - 30);
-    e.y = clamp(e.y + e.vy, 120, CFG.WORLD_H - 30);
-
-    // enter the electrifier => ZAP => joins your army
-    if (dist(e.x, e.y, el.x, el.y) < game.elecR) {
-      convertEnemy(e);
-      continue;
-    }
-
-    // caught the player => you lose a bone
-    if (dToP < 26 && p.hit === undefined) {
-      hitPlayer(e);
-    }
-  }
-  game.enemies = game.enemies.filter((e) => !e.dead);
-
-  // player hit cooldown
-  if (p.hit !== undefined) { p.hit--; if (p.hit <= 0) delete p.hit; }
-
-  /* --- power-up pickups --- */
-  for (const pu of game.powerups) {
-    pu.bob += 0.08;
-    if (!pu.taken && dist(pu.x, pu.y, p.x, p.y) < 30) {
-      pu.taken = true;
-      grabPowerup(pu);
-    }
-  }
-  game.powerups = game.powerups.filter((pu) => !pu.taken);
-
-  /* --- timers & combo decay --- */
-  if (game.speedT > 0) game.speedT--;
-  if (game.magnetT > 0) game.magnetT--;
-  if (game.comboT > 0) { game.comboT--; if (game.comboT === 0) game.combo = 0; }
-
-  /* --- floating text --- */
-  for (const f of game.floats) { f.y -= 0.7; f.life--; }
-  game.floats = game.floats.filter((f) => f.life > 0);
-
-  /* --- gate --- */
-  game.gate.open = game.army >= CFG.ARMY_TO_OPEN_GATE;
-  if (game.gate.open) unlock("army15");
-  if (game.gate.open && dist(p.x, p.y, game.gate.x, game.gate.y) < 46) {
-    nextGraveyard();
-  }
-
-  updateParticles();
-}
-
-function grabPowerup(pu) {
-  spark(pu.x, pu.y, pu.color, 18, 5);
-  floatText(pu.x, pu.y - 20, pu.label, pu.color, 22);
-  Sound.blip(880, 0.12, "triangle", 0.2);
-  if (pu.type === "speed") { game.speedT = CFG.SPEED_TIME; unlock("speedy"); }
-  else if (pu.type === "magnet") { game.magnetT = CFG.MAGNET_TIME; unlock("magnet"); Sound.zap(); }
-  else if (pu.type === "shield") { game.shield = true; }
-  else if (pu.type === "heal") { game.bones = Math.min(CFG.PLAYER_MAX_BONES, game.bones + 1); }
-}
-
-function updateParticles() {
-  for (const pt of game.particles) {
-    pt.x += pt.vx; pt.y += pt.vy; pt.vx *= 0.92; pt.vy *= 0.92; pt.life--;
-  }
-  game.particles = game.particles.filter((pt) => pt.life > 0);
-}
-
-function convertEnemy(e) {
-  e.dead = true;
-  game.army++;
-  game.totalConverted++;
-  rebuildFollowers();
-  // combo chain — keep zapping before the timer runs out
-  game.combo++;
-  game.comboT = CFG.COMBO_WINDOW;
-  spark(e.x, e.y, "#9fe8ff", 22, 6);
-  spark(e.x, e.y, "#fff7a8", 10, 4);
-  screenShake = Math.max(screenShake, 4 + Math.min(game.combo, 8));
-  Sound.blip(440 + Math.min(game.combo, 12) * 40, 0.1, "square", 0.16);
-  Sound.zap();
-  if (game.combo >= 2) {
-    floatText(e.x, e.y - 24, "x" + game.combo + (game.combo >= 5 ? "!" : ""),
-      game.combo >= 10 ? "#ff5a9e" : game.combo >= 5 ? "#ff9b3f" : "#ffd23f",
-      18 + Math.min(game.combo, 10));
-  }
-  if (game.combo >= 5) unlock("combo5");
-  if (game.combo >= 10) unlock("combo10");
-  checkBadges();
-}
-
-function hitPlayer(e) {
-  const p = game.player;
-  // knock the enemy back so it doesn't drain you instantly
-  const a = Math.atan2(e.y - p.y, e.x - p.x);
-  e.x += Math.cos(a) * 60; e.y += Math.sin(a) * 60;
-  e.vx = Math.cos(a) * 6; e.vy = Math.sin(a) * 6;
-  // shield power-up soaks the first hit
-  if (game.shield) {
-    game.shield = false;
-    p.hit = CFG.HIT_COOLDOWN;
-    screenShake = Math.max(screenShake, 7);
-    spark(p.x, p.y, "#8effc0", 18, 5);
-    floatText(p.x, p.y - 24, "BLOCKED!", "#8effc0", 22);
-    Sound.blip(300, 0.14, "triangle", 0.2);
-    unlock("shield");
-    return;
-  }
-  p.hit = CFG.HIT_COOLDOWN;
-  screenShake = Math.max(screenShake, 9);
-  game.hitsThisGY++;
-  game.combo = 0; game.comboT = 0;     // a hit breaks your chain
-  if (game.army > 1) {
-    // lose an army skeleton ("a bone")
-    game.army--;
-    rebuildFollowers();
-    spark(p.x, p.y, "#cfe0ff", 16, 5);
-    Sound.hurt();
-    toast = { text: "An enemy got you! −1 skeleton", sub: "", t: 70 };
-  } else {
-    // no army left — lose one of your own bones
-    game.bones--;
-    spark(p.x, p.y, "#ff8a8a", 18, 5);
-    Sound.hurt();
-    if (game.bones <= 0) {
-      state = STATE.OVER;
-    } else {
-      if (game.bones === 1) unlock("lastBone");
-      toast = { text: "Ouch! Lost a bone (" + game.bones + " left)", sub: "", t: 70 };
-    }
-  }
-}
-
-function nextGraveyard() {
-  // Flawless: cleared the graveyard you're leaving without taking a hit
-  if (game.hitsThisGY === 0) unlock("flawless");
-  game.graveyard++;
-  doSave(false);
-  Sound.gate();
-  const d = difficulty(game.graveyard);
-  const runners = Math.round(d.count * d.runnerPct);
-  let sub = d.count + " skeletons, faster & fiercer";
-  if (runners > 0) sub += " · " + runners + " runner" + (runners > 1 ? "s" : "") + "!";
-  toast = { text: "Graveyard " + game.graveyard + "!", sub: sub, t: 140 };
-  buildGraveyard();
-  checkBadges();
-}
-
-/* Unlock a badge by id — shows the trophy popup the first time only. */
-function unlock(id) {
-  if (game.badges[id]) return;
-  const b = BADGES.find((x) => x.id === id);
-  if (!b) return;
-  game.badges[id] = true;
-  badgeShow = { icon: b.icon, name: b.name, t: 200 };
-  Sound.badge();
-  doSave(false);
-}
-/* Evaluate threshold badges (called after zaps & graveyard changes). */
-function checkBadges() {
-  if (game.totalConverted >= 1) unlock("first");
-  if (game.totalConverted >= 250) unlock("skel250");
-  if (game.totalConverted >= 1000) unlock("skel1000");
-  if (game.graveyard >= 5) unlock("gy5");
-  if (game.graveyard >= 10) unlock("gy10");
-  if (game.army >= 30) unlock("megaArmy");
-}
-
-/* ============================== RENDER ================================== */
-function render() {
-  uiButtons = [];
-  ctx.clearRect(0, 0, VW, VH);
-
-  if (state === STATE.TITLE) { drawTitle(); return; }
-  if (state === STATE.BADGES) { drawBadgesScreen(); return; }
-
-  // camera follows player, clamped to world
-  const p = game.player;
-  let camX = clamp(p.x - VW / 2, 0, Math.max(0, CFG.WORLD_W - VW));
-  let camY = clamp(p.y - VH / 2, 0, Math.max(0, CFG.WORLD_H - VH));
-  if (CFG.WORLD_W < VW) camX = (CFG.WORLD_W - VW) / 2;
-  if (CFG.WORLD_H < VH) camY = (CFG.WORLD_H - VH) / 2;
-  let shake = screenShake > 0.4 ? screenShake : 0;
-  const sx = shake ? rand(-shake, shake) : 0;
-  const sy = shake ? rand(-shake, shake) : 0;
-  game.cam.x = camX; game.cam.y = camY;
-
-  ctx.save();
-  ctx.translate(-camX + sx, -camY + sy);
-
-  drawGround();
-  // draw graves & entities sorted by y for depth
-  drawGraves();
-  drawGate();
-  drawElectrifier();
-  drawPowerups();
-  drawEnemies();
-  drawArmy();
-  drawParticles();
-  drawFloats();
-
-  ctx.restore();
-
-  drawFog();
-  drawHUD();
-
-  if (badgeShow) drawBadgePopup();
-  if (toast) drawToast();
-  if (state === STATE.PAUSE) drawPause();
-  if (state === STATE.OVER) drawOver();
-  if (isTouch && state === STATE.PLAY) drawStick();
-}
-
-/* ----------------------------- World art -------------------------------- */
-function drawGround() {
-  // dark grassy graveyard ground with a faint grid of paths
-  ctx.fillStyle = "#0c1320";
-  ctx.fillRect(0, 0, CFG.WORLD_W, CFG.WORLD_H);
-  ctx.fillStyle = "rgba(30,50,40,0.35)";
-  for (let x = 0; x < CFG.WORLD_W; x += 140) {
-    for (let y = 0; y < CFG.WORLD_H; y += 140) {
-      if ((x / 140 + y / 140) % 2 === 0) ctx.fillRect(x, y, 140, 140);
-    }
-  }
-  // border wall
-  ctx.strokeStyle = "#23304a";
-  ctx.lineWidth = 14;
-  ctx.strokeRect(7, 7, CFG.WORLD_W - 14, CFG.WORLD_H - 14);
-  // a few dead trees / scratchy bushes
-}
-
-function drawGraves() {
-  for (const g of game.graves) {
-    ctx.save();
-    ctx.translate(g.x, g.y);
-    ctx.rotate(g.lean);
-    // shadow
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.beginPath(); ctx.ellipse(0, 26, 24, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#6b7280";
-    ctx.strokeStyle = "#3a4150";
-    ctx.lineWidth = 2;
-    if (g.type === 0) {
-      // rounded headstone
-      ctx.beginPath();
-      ctx.moveTo(-20, 28); ctx.lineTo(-20, -10);
-      ctx.arc(0, -10, 20, Math.PI, 0);
-      ctx.lineTo(20, 28); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#3a4150"; ctx.font = "bold 12px 'Comic Sans MS', cursive";
-      ctx.textAlign = "center"; ctx.fillText("R I P", 0, 2);
-    } else if (g.type === 1) {
-      // cross
-      ctx.fillRect(-6, -28, 12, 56);
-      ctx.fillRect(-18, -16, 36, 12);
-      ctx.strokeRect(-6, -28, 12, 56);
-    } else {
-      // flat slab
-      ctx.beginPath();
-      ctx.moveTo(-22, 28); ctx.lineTo(-16, -16); ctx.lineTo(16, -16); ctx.lineTo(22, 28);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-    }
-    ctx.restore();
-  }
-}
-
-function drawGate() {
-  const g = game.gate;
-  ctx.save();
-  ctx.translate(g.x, g.y);
-  const open = g.open;
-  // two stone pillars
-  ctx.fillStyle = "#586074";
-  ctx.fillRect(-70, -10, 26, 110);
-  ctx.fillRect(44, -10, 26, 110);
-  ctx.fillStyle = "#454c5e";
-  ctx.fillRect(-74, 86, 148, 18);
-  // arch
-  ctx.strokeStyle = "#586074"; ctx.lineWidth = 18;
-  ctx.beginPath(); ctx.arc(0, 0, 57, Math.PI, 0); ctx.stroke();
-  // bars / glow
-  if (open) {
-    ctx.fillStyle = "rgba(120,255,180,0.18)";
-    ctx.fillRect(-44, 0, 88, 100);
-    ctx.fillStyle = "#8effc0";
-    ctx.font = "bold 16px 'Comic Sans MS', cursive"; ctx.textAlign = "center";
-    ctx.fillText("ENTER ▼", 0, 56);
-    // sparkle
-    if (frame % 6 === 0) spark(g.x + rand(-40, 40), g.y + rand(10, 90), "#8effc0", 1, 2);
-  } else {
-    ctx.strokeStyle = "#2b3242"; ctx.lineWidth = 6;
-    for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(i * 12, 0); ctx.lineTo(i * 12, 100); ctx.stroke(); }
-    // lock label
-    ctx.fillStyle = "#cdd6ea"; ctx.font = "bold 14px 'Comic Sans MS', cursive"; ctx.textAlign = "center";
-    ctx.fillText("🔒 Army " + game.army + "/" + CFG.ARMY_TO_OPEN_GATE, 0, 56);
-  }
-  ctx.restore();
-}
-
-function drawElectrifier() {
-  const el = game.electrifier;
-  ctx.save();
-  ctx.translate(el.x, el.y);
-  // ground danger ring
-  const pulse = 0.5 + 0.5 * Math.sin(el.charge);
-  ctx.fillStyle = "rgba(90,180,255," + (0.10 + pulse * 0.10) + ")";
-  ctx.beginPath(); ctx.arc(0, 0, game.elecR, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "rgba(150,220,255," + (0.4 + pulse * 0.4) + ")";
-  ctx.lineWidth = 3;
-  ctx.setLineDash([10, 8]);
-  ctx.beginPath(); ctx.arc(0, 0, game.elecR, el.charge * 0.3, el.charge * 0.3 + Math.PI * 2); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // base
-  ctx.fillStyle = "#3a4150";
-  ctx.beginPath(); ctx.ellipse(0, 30, 40, 14, 0, 0, Math.PI * 2); ctx.fill();
-  // pylon
-  ctx.fillStyle = "#7a8499";
-  ctx.beginPath();
-  ctx.moveTo(-16, 30); ctx.lineTo(-7, -34); ctx.lineTo(7, -34); ctx.lineTo(16, 30); ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "#aab4c8"; ctx.lineWidth = 2;
-  for (let i = 0; i < 4; i++) { const yy = 22 - i * 16; ctx.beginPath(); ctx.moveTo(-13 + i, yy); ctx.lineTo(13 - i, yy); ctx.stroke(); }
-  // coil ball
-  ctx.fillStyle = "#cfe9ff";
-  ctx.beginPath(); ctx.arc(0, -42, 14, 0, Math.PI * 2); ctx.fill();
-  // lightning arcs
-  ctx.strokeStyle = "#bfe9ff"; ctx.lineWidth = 2;
-  for (let a = 0; a < 4; a++) {
-    ctx.beginPath();
-    let ang = el.charge * 0.7 + a * (Math.PI / 2);
-    let lx = 0, ly = -42;
-    ctx.moveTo(lx, ly);
-    for (let s = 0; s < 4; s++) {
-      ang += rand(-0.5, 0.5);
-      lx += Math.cos(ang) * 12; ly += Math.sin(ang) * 12;
-      ctx.lineTo(lx, ly);
-    }
-    ctx.globalAlpha = 0.6 + pulse * 0.4;
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  // label
-  ctx.fillStyle = "#bfe9ff"; ctx.font = "bold 13px 'Comic Sans MS', cursive"; ctx.textAlign = "center";
-  ctx.fillText("⚡ ELECTRIFIER", 0, 52);
-  ctx.restore();
-}
-
-/* ----------------------------- Skeleton drawing ------------------------- */
-function drawSkeleton(x, y, scale, opt) {
-  opt = opt || {};
-  const col = opt.color || "#f4f6fb";
-  const eye = opt.eye || "#1a2030";
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale * (opt.dir || 1), scale);
-  if (opt.bob) ctx.translate(0, Math.sin(opt.bob) * 1.5);
-
-  // shadow
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
-  ctx.beginPath(); ctx.ellipse(0, 22, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
-
-  ctx.strokeStyle = col; ctx.fillStyle = col;
-  ctx.lineCap = "round"; ctx.lineWidth = 3;
-
-  // legs
-  const lk = opt.bob ? Math.sin(opt.bob) * 3 : 0;
-  ctx.beginPath(); ctx.moveTo(-3, 6); ctx.lineTo(-5, 14 + lk); ctx.lineTo(-7, 22 + lk); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(3, 6); ctx.lineTo(5, 14 - lk); ctx.lineTo(7, 22 - lk); ctx.stroke();
-  // spine
-  ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(0, 7); ctx.stroke();
-  // ribs
-  for (let i = 0; i < 3; i++) {
-    const ry = -2 + i * 3.5;
-    ctx.beginPath(); ctx.moveTo(0, ry); ctx.lineTo(-5, ry + 1); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, ry); ctx.lineTo(5, ry + 1); ctx.stroke();
-  }
-  // arms
-  const aw = opt.bob ? Math.sin(opt.bob) * 2 : 0;
-  ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(-8, 2 + aw); ctx.lineTo(-10, 8 + aw); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(8, 2 - aw); ctx.lineTo(10, 8 - aw); ctx.stroke();
-  // skull
-  ctx.beginPath(); ctx.arc(0, -10, 7.5, 0, Math.PI * 2); ctx.fill();
-  // jaw
-  ctx.fillRect(-4, -5, 8, 3);
-  // eyes
-  ctx.fillStyle = eye;
-  ctx.beginPath(); ctx.arc(-2.6, -11, 1.9, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(2.6, -11, 1.9, 0, Math.PI * 2); ctx.fill();
-  // glowing pupils for the player
-  if (opt.glow) {
-    ctx.fillStyle = opt.glow;
-    ctx.beginPath(); ctx.arc(-2.6, -11, 0.9, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(2.6, -11, 0.9, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawArmy() {
-  const p = game.player;
-  // magnet aura — show the pull is active
-  if (game.magnetT > 0) {
-    const a = 0.2 + 0.15 * Math.sin(frame * 0.3);
-    ctx.strokeStyle = "rgba(255,138,208," + a + ")"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(game.electrifier.x, game.electrifier.y, game.elecR + 18 + Math.sin(frame * 0.2) * 6, 0, Math.PI * 2); ctx.stroke();
-  }
-  // followers first (behind), then the player
-  for (let i = game.followers.length - 1; i >= 0; i--) {
-    const f = game.followers[i];
-    drawSkeleton(f.x, f.y, 1.5, { color: "#dfe8ff", bob: f.bob, dir: game.player.dir });
-  }
-  // shield bubble
-  if (game.shield) {
-    ctx.strokeStyle = "rgba(142,255,192,0.8)"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(p.x, p.y - 6, 24, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = "rgba(142,255,192,0.12)"; ctx.fill();
-  }
-  const flash = (p.hit !== undefined && Math.floor(frame / 4) % 2 === 0);
-  drawSkeleton(p.x, p.y, 2.0, {
-    color: flash ? "#ffd2d2" : "#ffffff",
-    glow: "#7df0ff",
-    eye: "#0d1730",
-    bob: p.bob,
-    dir: p.dir,
-  });
-  // little crown so the leader stands out
-  if (!flash) {
-    ctx.fillStyle = "#ffd23f";
-    ctx.beginPath();
-    const cx = p.x, cy = p.y - 26;
-    ctx.moveTo(cx - 9, cy); ctx.lineTo(cx - 9, cy - 7); ctx.lineTo(cx - 4.5, cy - 2);
-    ctx.lineTo(cx, cy - 8); ctx.lineTo(cx + 4.5, cy - 2); ctx.lineTo(cx + 9, cy - 7);
-    ctx.lineTo(cx + 9, cy); ctx.closePath(); ctx.fill();
-  }
-}
-
-function drawEnemies() {
-  for (const e of game.enemies) {
-    const runner = e.kind === "runner";
-    // runners are leaner, redder, with a motion streak so you can read the threat
-    if (runner) {
-      const sp = Math.hypot(e.vx, e.vy);
-      if (sp > 1) {
-        ctx.strokeStyle = "rgba(255,90,90,0.35)"; ctx.lineWidth = 3; ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(e.x, e.y - 6); ctx.lineTo(e.x - e.vx * 3, e.y - 6 - e.vy * 3); ctx.stroke();
+      function difficulty(gy) {
+        const g = Math.max(1, gy);
+        return {
+          count: Math.min(7 + Math.round(g * 3.5), 70), // crowd grows each level
+          speedMul: 1 + (g - 1) * 0.16, // skeletons get faster
+          speedCap: CFG.PLAYER_SPEED * Math.min(0.6 + (g - 1) * 0.03, 1.0), // up to your speed
+          sight: Math.min(300 + g * 34, 780), // they spot you sooner
+          chase: Math.min(0.07 + (g - 1) * 0.007, 0.18), // and turn toward you harder
+          elecR: Math.max(86 - (g - 1) * 2.2, 56), // smaller zap zone = needs aim
+          runnerPct: clamp((g - 2) * 0.07, 0, 0.5), // fraction that are runners
+        };
       }
-    }
-    drawSkeleton(e.x, e.y, runner ? 1.4 : 1.6, {
-      color: runner ? "#ff7a7a" : "#caa0a0",
-      eye: runner ? "#5a0000" : "#3a0d0d",
-      glow: runner ? "#ff3a3a" : null,
-      bob: e.bob,
-      dir: e.vx >= 0 ? 1 : -1,
-    });
-  }
-}
 
-function drawParticles() {
-  for (const pt of game.particles) {
-    ctx.globalAlpha = clamp(pt.life / pt.max, 0, 1);
-    ctx.fillStyle = pt.color;
-    ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-}
+      function makeEnemy(x, y, diff) {
+        const runner = Math.random() < diff.runnerPct;
+        const base = rand(1.0, 1.35) * diff.speedMul;
+        // normal skeletons stay (barely) outrunnable; runners can edge past you
+        const cap = runner ? CFG.PLAYER_SPEED * 1.04 : diff.speedCap;
+        const speed = clamp(runner ? base * 1.3 : base, 1.0, cap);
+        return {
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          kind: runner ? "runner" : "normal",
+          speed,
+          sight: diff.sight * (runner ? 1.15 : 1),
+          chase: diff.chase * (runner ? 1.25 : 1),
+          wanderA: rand(0, Math.PI * 2),
+          wanderT: randi(40, 120),
+          converting: 0, // >0 while being zapped
+          bob: rand(0, Math.PI * 2),
+        };
+      }
 
-function drawPowerups() {
-  for (const pu of game.powerups) {
-    const yy = pu.y + Math.sin(pu.bob) * 5;
-    // glowing pad
-    ctx.fillStyle = pu.color + "33";
-    ctx.beginPath(); ctx.arc(pu.x, pu.y + 14, 18, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = pu.color; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(pu.x, yy, 16, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = "rgba(8,12,22,0.7)";
-    ctx.beginPath(); ctx.arc(pu.x, yy, 15, 0, Math.PI * 2); ctx.fill();
-    ctx.font = "20px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(pu.icon, pu.x, yy + 1);
-    ctx.textBaseline = "alphabetic";
-  }
-}
+      const POWERUP_TYPES = [
+        { type: "speed", icon: "💨", color: "#7df0ff", label: "SPEED!" },
+        { type: "magnet", icon: "🧲", color: "#ff8ad0", label: "MAGNET!" },
+        { type: "shield", icon: "🛡️", color: "#8effc0", label: "SHIELD!" },
+        { type: "heal", icon: "🦴", color: "#fff7a8", label: "+1 BONE" },
+      ];
 
-function drawFloats() {
-  ctx.textAlign = "center";
-  for (const f of game.floats) {
-    ctx.globalAlpha = clamp(f.life / f.max, 0, 1);
-    ctx.font = "bold " + f.size + "px 'Comic Sans MS', cursive";
-    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,0.6)";
-    ctx.strokeText(f.text, f.x, f.y);
-    ctx.fillStyle = f.color;
-    ctx.fillText(f.text, f.x, f.y);
-  }
-  ctx.globalAlpha = 1;
-}
+      function buildGraveyard() {
+        const gy = game.graveyard;
+        const diff = difficulty(gy);
+        game.elecR = diff.elecR;
+        game.trail = [];
+        game.followers = [];
+        game.enemies = [];
+        game.particles = [];
+        game.floats = [];
+        game.powerups = [];
+        game.graves = [];
+        game.combo = 0;
+        game.comboT = 0;
+        game.speedT = 0;
+        game.magnetT = 0;
+        game.shield = false;
+        game.hitsThisGY = 0;
 
-/* ----------------------------- Fog / vignette --------------------------- */
-function drawFog() {
-  const g = ctx.createRadialGradient(VW / 2, VH / 2, Math.min(VW, VH) * 0.35, VW / 2, VH / 2, Math.max(VW, VH) * 0.7);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(2,4,10,0.85)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, VW, VH);
-}
+        // player starts centre
+        game.player = {
+          x: CFG.WORLD_W / 2,
+          y: CFG.WORLD_H / 2,
+          dir: 1,
+          bob: 0,
+        };
+        for (let i = 0; i < 80; i++)
+          game.trail.push({ x: game.player.x, y: game.player.y });
+        rebuildFollowers();
 
-/* ----------------------------- HUD -------------------------------------- */
-function drawHUD() {
-  ctx.textAlign = "left";
-  // panel
-  ctx.fillStyle = "rgba(8,12,22,0.72)";
-  roundRect(10, 10, 248, 96, 12); ctx.fill();
-  ctx.strokeStyle = "#3a4f7a"; ctx.lineWidth = 2; roundRect(10, 10, 248, 96, 12); ctx.stroke();
+        // electrifier — the conversion machine. Place it off-centre.
+        game.electrifier = {
+          x: CFG.WORLD_W * 0.5,
+          y: CFG.WORLD_H * 0.34,
+          charge: 0,
+        };
 
-  ctx.fillStyle = "#bfe9ff"; ctx.font = "bold 20px 'Comic Sans MS', cursive";
-  ctx.fillText("Army: " + game.army, 24, 38);
-  // gate progress bar
-  const pct = clamp(game.army / CFG.ARMY_TO_OPEN_GATE, 0, 1);
-  ctx.fillStyle = "#1e2740"; roundRect(120, 24, 124, 14, 7); ctx.fill();
-  ctx.fillStyle = pct >= 1 ? "#8effc0" : "#ffd23f"; roundRect(120, 24, 124 * pct, 14, 7); ctx.fill();
+        // exit gate, locked until army >= 15
+        game.gate = { x: CFG.WORLD_W * 0.5, y: 60, open: false };
 
-  ctx.fillStyle = "#cdd6ea"; ctx.font = "14px 'Comic Sans MS', cursive";
-  ctx.fillText("Graveyard " + game.graveyard + "   ·   Zapped " + game.totalConverted, 24, 62);
+        // gravestones for decoration (avoid the electrifier & gate)
+        const graveCount = 26 + gy * 3;
+        for (let i = 0; i < graveCount; i++) {
+          let gx,
+            gyy,
+            tries = 0;
+          do {
+            gx = rand(120, CFG.WORLD_W - 120);
+            gyy = rand(160, CFG.WORLD_H - 120);
+            tries++;
+          } while (
+            tries < 12 &&
+            (dist(gx, gyy, game.electrifier.x, game.electrifier.y) < 160 ||
+              dist(gx, gyy, game.player.x, game.player.y) < 180)
+          );
+          game.graves.push({
+            x: gx,
+            y: gyy,
+            type: randi(0, 2),
+            lean: rand(-0.12, 0.12),
+          });
+        }
 
-  // bones (your personal health, only matters when army is gone)
-  ctx.fillText("Bones:", 24, 86);
-  for (let i = 0; i < CFG.PLAYER_MAX_BONES; i++) {
-    ctx.fillStyle = i < game.bones ? "#f4f6fb" : "#3a4150";
-    ctx.font = "16px serif";
-    ctx.fillText("🦴", 82 + i * 22, 90);
-  }
+        // enemy skeletons — more & faster each graveyard
+        for (let i = 0; i < diff.count; i++) {
+          let ex,
+            ey,
+            tries = 0;
+          do {
+            ex = rand(100, CFG.WORLD_W - 100);
+            ey = rand(140, CFG.WORLD_H - 100);
+            tries++;
+          } while (
+            tries < 12 &&
+            dist(ex, ey, game.player.x, game.player.y) < 360
+          );
+          game.enemies.push(makeEnemy(ex, ey, diff));
+        }
 
-  // combo meter (under the panel, only while a chain is alive)
-  if (game.combo >= 2) {
-    const cf = clamp(game.comboT / CFG.COMBO_WINDOW, 0, 1);
-    const col = game.combo >= 10 ? "#ff5a9e" : game.combo >= 5 ? "#ff9b3f" : "#ffd23f";
-    ctx.textAlign = "left"; ctx.fillStyle = col;
-    ctx.font = "bold 22px 'Comic Sans MS', cursive";
-    ctx.fillText("🔥 Combo x" + game.combo, 16, 134);
-    ctx.fillStyle = "#1e2740"; roundRect(16, 142, 150, 8, 4); ctx.fill();
-    ctx.fillStyle = col; roundRect(16, 142, 150 * cf, 8, 4); ctx.fill();
-  }
+        // power-up toys scattered around the graveyard
+        for (let i = 0; i < CFG.POWERUPS_PER_GY; i++) {
+          const def = POWERUP_TYPES[randi(0, POWERUP_TYPES.length - 1)];
+          let px,
+            py,
+            tries = 0;
+          do {
+            px = rand(140, CFG.WORLD_W - 140);
+            py = rand(180, CFG.WORLD_H - 140);
+            tries++;
+          } while (
+            tries < 12 &&
+            (dist(px, py, game.electrifier.x, game.electrifier.y) < 150 ||
+              dist(px, py, game.player.x, game.player.y) < 200)
+          );
+          game.powerups.push({
+            x: px,
+            y: py,
+            type: def.type,
+            icon: def.icon,
+            color: def.color,
+            label: def.label,
+            bob: rand(0, 6.28),
+          });
+        }
+      }
 
-  // active power-up timers (top, just right of the panel)
-  let px = 270;
-  if (game.speedT > 0) px = drawPowerHud(px, "💨", game.speedT / CFG.SPEED_TIME, "#7df0ff");
-  if (game.magnetT > 0) px = drawPowerHud(px, "🧲", game.magnetT / CFG.MAGNET_TIME, "#ff8ad0");
-  if (game.shield) px = drawPowerHud(px, "🛡️", 1, "#8effc0");
+      function rebuildFollowers() {
+        // visual followers = army - 1 (you), capped for performance
+        const want = Math.min(game.army - 1, CFG.MAX_DRAWN_FOLLOWERS);
+        game.followers = [];
+        for (let i = 0; i < want; i++) {
+          game.followers.push({
+            x: game.player.x,
+            y: game.player.y,
+            bob: rand(0, Math.PI * 2),
+          });
+        }
+      }
 
-  // hint
-  ctx.fillStyle = "#8fa6d8"; ctx.font = "13px 'Comic Sans MS', cursive"; ctx.textAlign = "center";
-  if (game.army < CFG.ARMY_TO_OPEN_GATE) {
-    ctx.fillText("Lure enemies into the ⚡Electrifier to grow your army!", VW / 2, 26);
-  } else {
-    ctx.fillText("Gate open! Head to the top of the graveyard ▲", VW / 2, 26);
-  }
+      function newGame() {
+        game.army = 1;
+        game.bones = CFG.PLAYER_MAX_BONES;
+        game.totalConverted = 0;
+        game.graveyard = 1;
+        game.badges = {};
+        buildGraveyard();
+        state = STATE.PLAY;
+      }
+      function resumeGame() {
+        const s = loadSave();
+        if (!s) return;
+        game.army = s.army || 1;
+        game.bones = s.bones || CFG.PLAYER_MAX_BONES;
+        game.totalConverted = s.totalConverted || 0;
+        game.graveyard = s.graveyard || 1;
+        game.badges = s.badges || {};
+        buildGraveyard();
+        state = STATE.PLAY;
+      }
 
-  // top-right buttons: Save / Menu / Mute
-  drawTopButton("save", VW - 64, 14, "💾");
-  drawTopButton("title", VW - 116, 14, "≡");
-  drawTopButton("mute", VW - 168, 14, Sound.muted ? "🔇" : "🔊");
-}
-function drawTopButton(id, x, y, label) {
-  const w = 44, h = 40;
-  ctx.fillStyle = "rgba(8,12,22,0.72)"; roundRect(x, y, w, h, 10); ctx.fill();
-  ctx.strokeStyle = "#3a4f7a"; ctx.lineWidth = 2; roundRect(x, y, w, h, 10); ctx.stroke();
-  ctx.fillStyle = "#fff"; ctx.font = "18px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(label, x + w / 2, y + h / 2 + 1);
-  ctx.textBaseline = "alphabetic";
-  if (id === "mute") addButton("mute", x, y, w, h, label);
-  else addButton(id, x, y, w, h, label);
-}
-function drawPowerHud(x, icon, frac, color) {
-  const w = 50, h = 40, y = 14;
-  ctx.fillStyle = "rgba(8,12,22,0.72)"; roundRect(x, y, w, h, 10); ctx.fill();
-  ctx.strokeStyle = color; ctx.lineWidth = 2; roundRect(x, y, w, h, 10); ctx.stroke();
-  ctx.font = "20px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillStyle = "#fff"; ctx.fillText(icon, x + w / 2, y + h / 2 - 3);
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#1e2740"; roundRect(x + 8, y + h - 11, w - 16, 5, 2); ctx.fill();
-  ctx.fillStyle = color; roundRect(x + 8, y + h - 11, (w - 16) * clamp(frac, 0, 1), 5, 2); ctx.fill();
-  return x + w + 8;
-}
+      /* ----------------------------- Buttons dispatch ------------------------- */
+      function onButton(id) {
+        switch (id) {
+          case "mute":
+            Sound.muted = !Sound.muted;
+            break;
+          case "new":
+            newGame();
+            break;
+          case "resume":
+            if (hasSave()) resumeGame();
+            break;
+          case "quit":
+            window.location.href = "../index.html";
+            break;
+          case "save":
+            doSave(true);
+            break;
+          case "title":
+            doSave(false);
+            state = STATE.TITLE;
+            break;
+          case "continue":
+            state = STATE.PLAY;
+            break;
+          case "again":
+            newGame();
+            break;
+          case "menu":
+            state = STATE.TITLE;
+            break;
+          case "badges":
+            state = STATE.BADGES;
+            break;
+          case "back":
+            state = STATE.TITLE;
+            break;
+        }
+      }
 
-/* ----------------------------- Touch stick draw ------------------------- */
-function drawStick() {
-  if (!stick.active) return;
-  const v = stickVec();
-  ctx.globalAlpha = 0.5;
-  ctx.fillStyle = "#1a2236"; ctx.beginPath(); ctx.arc(stick.ox, stick.oy, STICK_MAX, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#7df0ff"; ctx.beginPath(); ctx.arc(stick.ox + v.x, stick.oy + v.y, 26, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = 1;
-}
+      /* ----------------------------- Particles & floats ----------------------- */
+      function spark(x, y, color, n, spd) {
+        for (let i = 0; i < n; i++) {
+          const a = rand(0, Math.PI * 2);
+          const s = rand(0.5, spd || 4);
+          game.particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s,
+            life: randi(18, 36),
+            max: 36,
+            color: color || "#9fe8ff",
+            r: rand(1.5, 3.5),
+          });
+        }
+      }
+      function floatText(x, y, text, color, size) {
+        game.floats.push({
+          x,
+          y,
+          text,
+          color: color || "#ffd23f",
+          size: size || 22,
+          life: 60,
+          max: 60,
+        });
+      }
 
-/* ----------------------------- Title ------------------------------------ */
-const titleSkel = { bob: 0 };
-function drawTitle() {
-  titleSkel.bob += 0.05;
-  // background
-  const g = ctx.createLinearGradient(0, 0, 0, VH);
-  g.addColorStop(0, "#0a0f1d"); g.addColorStop(1, "#05070d");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+      /* ----------------------------- Update ----------------------------------- */
+      function update() {
+        frame++;
+        if (screenShake > 0) screenShake *= 0.86;
+        if (toast) {
+          toast.t--;
+          if (toast.t <= 0) toast = null;
+        }
+        if (badgeShow) {
+          badgeShow.t--;
+          if (badgeShow.t <= 0) badgeShow = null;
+        }
 
-  // moon
-  ctx.fillStyle = "#dfe6ff"; ctx.beginPath(); ctx.arc(VW * 0.8, VH * 0.22, 54, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#0a0f1d"; ctx.beginPath(); ctx.arc(VW * 0.83, VH * 0.20, 46, 0, Math.PI * 2); ctx.fill();
+        if (state !== STATE.PLAY) {
+          updateParticles();
+          return;
+        }
 
-  // ground silhouette graves
-  ctx.fillStyle = "#10182a";
-  ctx.fillRect(0, VH * 0.72, VW, VH);
-  ctx.fillStyle = "#1a2440";
-  for (let i = 0; i < 7; i++) {
-    const gx = (i + 0.5) * VW / 7 + Math.sin(i) * 20;
-    ctx.beginPath(); ctx.moveTo(gx - 22, VH * 0.72); ctx.lineTo(gx - 22, VH * 0.66);
-    ctx.arc(gx, VH * 0.66, 22, Math.PI, 0); ctx.lineTo(gx + 22, VH * 0.72); ctx.fill();
-  }
+        const p = game.player;
 
-  // title
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#bfe9ff";
-  ctx.font = "bold " + Math.floor(clamp(VW * 0.085, 34, 78)) + "px 'Comic Sans MS', cursive";
-  ctx.shadowColor = "#2a6cff"; ctx.shadowBlur = 24;
-  ctx.fillText("Skeleton", VW / 2, VH * 0.26);
-  ctx.fillText("Graveyards", VW / 2, VH * 0.26 + clamp(VW * 0.09, 40, 84));
-  ctx.shadowBlur = 0;
+        /* --- movement --- */
+        let mx = 0,
+          my = 0;
+        if (keys["ArrowLeft"] || keys["a"] || keys["A"]) mx -= 1;
+        if (keys["ArrowRight"] || keys["d"] || keys["D"]) mx += 1;
+        if (keys["ArrowUp"] || keys["w"] || keys["W"]) my -= 1;
+        if (keys["ArrowDown"] || keys["s"] || keys["S"]) my += 1;
+        if (stick.active) {
+          const v = stickVec();
+          if (v.len > 10) {
+            mx += v.x;
+            my += v.y;
+          }
+        }
+        const ml = Math.hypot(mx, my);
+        const spd = CFG.PLAYER_SPEED * (game.speedT > 0 ? 1.7 : 1);
+        if (ml > 0) {
+          mx /= ml;
+          my /= ml;
+          p.x = clamp(p.x + mx * spd, 30, CFG.WORLD_W - 30);
+          p.y = clamp(p.y + my * spd, 30, CFG.WORLD_H - 30);
+          if (mx !== 0) p.dir = mx > 0 ? 1 : -1;
+          p.bob += 0.3;
+          if (game.speedT > 0 && frame % 3 === 0)
+            spark(p.x, p.y, "#7df0ff", 1, 1.5);
+        }
 
-  // dancing skeleton
-  drawSkeleton(VW / 2, VH * 0.55, clamp(VW * 0.012, 3.4, 6), { color: "#fff", glow: "#7df0ff", bob: titleSkel.bob * 6 });
+        /* --- record trail for the army --- */
+        game.trail.unshift({ x: p.x, y: p.y });
+        const maxTrail = CFG.FOLLOW_SPACING * (CFG.MAX_DRAWN_FOLLOWERS + 2);
+        if (game.trail.length > maxTrail) game.trail.length = maxTrail;
+        for (let i = 0; i < game.followers.length; i++) {
+          const idx = Math.min(
+            (i + 1) * CFG.FOLLOW_SPACING,
+            game.trail.length - 1,
+          );
+          const t = game.trail[idx];
+          const f = game.followers[i];
+          f.x = lerp(f.x, t.x, 0.4);
+          f.y = lerp(f.y, t.y, 0.4);
+          f.bob += 0.2;
+        }
 
-  // buttons: New Game / Resume / Badges / (Quit · Save)
-  const bw = clamp(VW * 0.5, 200, 300), bh = 50, gap = 12;
-  const cx = VW / 2 - bw / 2;
-  let by = VH * 0.62;
-  const save = hasSave();
-  const half = (bw - gap) / 2;
-  titleButton("new", cx, by, bw, bh, "▶  New Game", "#ffd23f", "#5a3c00"); by += bh + gap;
-  titleButton("resume", cx, by, bw, bh, save ? "↻  Resume" : "↻  Resume (no save)", save ? "#8effc0" : "#3a4150", save ? "#0a3a22" : "#222", !save); by += bh + gap;
-  const earned = BADGES.filter((b) => game.badges[b.id]).length;
-  titleButton("badges", cx, by, bw, bh, "🏅 Badges  (" + earned + "/" + BADGES.length + ")", "#c8a6ff", "#2a1056"); by += bh + gap;
-  titleButton("quit", cx, by, half, bh, "✕ Quit", "#ff9bb0", "#5a0d20");
-  titleButton("save", cx + half + gap, by, half, bh, "💾 Save", save ? "#bfe9ff" : "#3a4150", "#0d2440", !save);
+        /* --- electrifier --- */
+        const el = game.electrifier;
+        el.charge += 0.12;
 
-  // footer hint
-  ctx.fillStyle = "#5b6a92"; ctx.font = "13px 'Comic Sans MS', cursive";
-  ctx.fillText("Quit returns to the Claude Arcade", VW / 2, by + bh + 24);
-}
+        /* --- enemies --- */
+        for (const e of game.enemies) {
+          if (e.converting > 0) {
+            e.converting--;
+            continue;
+          }
+          e.bob += 0.18;
+          const dToP = dist(e.x, e.y, p.x, p.y);
+          if (game.magnetT > 0) {
+            // MAGNET! every enemy is dragged straight into the electrifier
+            const a = Math.atan2(el.y - e.y, el.x - e.x);
+            e.vx = lerp(e.vx, Math.cos(a) * (e.speed + 2.2), 0.16);
+            e.vy = lerp(e.vy, Math.sin(a) * (e.speed + 2.2), 0.16);
+          } else if (dToP < e.sight) {
+            // chase the player (this is how you lure them into the electrifier)
+            const a = Math.atan2(p.y - e.y, p.x - e.x);
+            e.vx = lerp(e.vx, Math.cos(a) * e.speed, e.chase);
+            e.vy = lerp(e.vy, Math.sin(a) * e.speed, e.chase);
+          } else {
+            // wander
+            e.wanderT--;
+            if (e.wanderT <= 0) {
+              e.wanderA = rand(0, Math.PI * 2);
+              e.wanderT = randi(40, 120);
+            }
+            e.vx = lerp(e.vx, Math.cos(e.wanderA) * e.speed * 0.5, 0.04);
+            e.vy = lerp(e.vy, Math.sin(e.wanderA) * e.speed * 0.5, 0.04);
+          }
+          e.x = clamp(e.x + e.vx, 30, CFG.WORLD_W - 30);
+          e.y = clamp(e.y + e.vy, 120, CFG.WORLD_H - 30);
 
-/* ----------------------------- Badge gallery ---------------------------- */
-function drawBadgesScreen() {
-  const g = ctx.createLinearGradient(0, 0, 0, VH);
-  g.addColorStop(0, "#0a0f1d"); g.addColorStop(1, "#05070d");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+          // enter the electrifier => ZAP => joins your army
+          if (dist(e.x, e.y, el.x, el.y) < game.elecR) {
+            convertEnemy(e);
+            continue;
+          }
 
-  const earned = BADGES.filter((b) => game.badges[b.id]).length;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#c8a6ff"; ctx.font = "bold " + Math.floor(clamp(VW * 0.06, 28, 48)) + "px 'Comic Sans MS', cursive";
-  ctx.shadowColor = "#7a3cff"; ctx.shadowBlur = 18;
-  ctx.fillText("🏅 Badges", VW / 2, VH * 0.11);
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#bfe9ff"; ctx.font = "16px 'Comic Sans MS', cursive";
-  ctx.fillText(earned + " of " + BADGES.length + " earned", VW / 2, VH * 0.11 + 28);
+          // caught the player => you lose a bone
+          if (dToP < 26 && p.hit === undefined) {
+            hitPlayer(e);
+          }
+        }
+        game.enemies = game.enemies.filter((e) => !e.dead);
 
-  // grid of badge shields
-  const cols = VW < 560 ? 2 : VW < 820 ? 3 : 4;
-  const cellW = Math.min(200, (VW - 60) / cols);
-  const cellH = 96;
-  const gridW = cols * cellW;
-  const top = VH * 0.18;
-  const rows = Math.ceil(BADGES.length / cols);
-  const startX = VW / 2 - gridW / 2;
-  for (let i = 0; i < BADGES.length; i++) {
-    const b = BADGES[i];
-    const got = !!game.badges[b.id];
-    const r = Math.floor(i / cols), c = i % cols;
-    const x = startX + c * cellW + cellW / 2;
-    const y = top + r * cellH;
-    // shield
-    ctx.globalAlpha = got ? 1 : 0.4;
-    ctx.fillStyle = got ? "#ffd23f" : "#2a3350";
-    ctx.beginPath();
-    ctx.moveTo(x - 26, y - 26); ctx.lineTo(x + 26, y - 26);
-    ctx.lineTo(x + 26, y + 6); ctx.quadraticCurveTo(x + 26, y + 30, x, y + 38);
-    ctx.quadraticCurveTo(x - 26, y + 30, x - 26, y + 6); ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = got ? "#a37c00" : "#1a2236"; ctx.lineWidth = 3; ctx.stroke();
-    ctx.font = "22px serif"; ctx.textBaseline = "middle";
-    ctx.fillText(got ? b.icon : "🔒", x, y - 6);
-    ctx.textBaseline = "alphabetic";
-    // name + desc
-    ctx.fillStyle = got ? "#ffe9a8" : "#5b6a92"; ctx.font = "bold 13px 'Comic Sans MS', cursive";
-    ctx.fillText(b.name, x, y + 54);
-    ctx.fillStyle = got ? "#cdd6ea" : "#445"; ctx.font = "11px 'Comic Sans MS', cursive";
-    wrapText(b.desc, x, y + 70, cellW - 12, 12);
-    ctx.globalAlpha = 1;
-  }
+        // player hit cooldown
+        if (p.hit !== undefined) {
+          p.hit--;
+          if (p.hit <= 0) delete p.hit;
+        }
 
-  // back button
-  const bw = clamp(VW * 0.4, 180, 240), bh = 50;
-  titleButton("back", VW / 2 - bw / 2, VH - 78, bw, bh, "‹ Back", "#cdd6ea", "#1a2236");
-}
-function wrapText(text, cx, y, maxW, lh) {
-  const words = text.split(" ");
-  let line = "", yy = y;
-  for (const w of words) {
-    const test = line ? line + " " + w : w;
-    if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, cx, yy); line = w; yy += lh; }
-    else line = test;
-  }
-  if (line) ctx.fillText(line, cx, yy);
-}
-function titleButton(id, x, y, w, h, label, fill, textCol, disabled) {
-  ctx.save();
-  ctx.globalAlpha = disabled ? 0.5 : 1;
-  ctx.fillStyle = fill; roundRect(x, y, w, h, 14); ctx.fill();
-  ctx.fillStyle = textCol; ctx.font = "bold " + clamp(w * 0.09, 16, 22) + "px 'Comic Sans MS', cursive";
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(label, x + w / 2, y + h / 2);
-  ctx.textBaseline = "alphabetic";
-  ctx.restore();
-  addButton(id, x, y, w, h, label, { disabled });
-}
+        /* --- power-up pickups --- */
+        for (const pu of game.powerups) {
+          pu.bob += 0.08;
+          if (!pu.taken && dist(pu.x, pu.y, p.x, p.y) < 30) {
+            pu.taken = true;
+            grabPowerup(pu);
+          }
+        }
+        game.powerups = game.powerups.filter((pu) => !pu.taken);
 
-/* ----------------------------- Overlays --------------------------------- */
-function drawPause() {
-  dim();
-  ctx.fillStyle = "#bfe9ff"; ctx.textAlign = "center"; ctx.font = "bold 40px 'Comic Sans MS', cursive";
-  ctx.fillText("Paused", VW / 2, VH * 0.36);
-  const bw = clamp(VW * 0.5, 200, 280), bh = 50, gap = 14, cx = VW / 2 - bw / 2;
-  let by = VH * 0.44;
-  titleButton("continue", cx, by, bw, bh, "▶ Continue", "#ffd23f", "#5a3c00"); by += bh + gap;
-  titleButton("save", cx, by, bw, bh, "💾 Save Progress", "#bfe9ff", "#0d2440"); by += bh + gap;
-  titleButton("title", cx, by, bw, bh, "≡ Main Menu", "#cdd6ea", "#1a2236");
-  ctx.fillStyle = "#8fa6d8"; ctx.font = "13px 'Comic Sans MS', cursive";
-  ctx.fillText("P to resume · M to mute", VW / 2, by + bh + 28);
-}
+        /* --- timers & combo decay --- */
+        if (game.speedT > 0) game.speedT--;
+        if (game.magnetT > 0) game.magnetT--;
+        if (game.comboT > 0) {
+          game.comboT--;
+          if (game.comboT === 0) game.combo = 0;
+        }
 
-function drawOver() {
-  dim();
-  ctx.fillStyle = "#ff9bb0"; ctx.textAlign = "center"; ctx.font = "bold 44px 'Comic Sans MS', cursive";
-  ctx.fillText("You crumbled to dust…", VW / 2, VH * 0.34);
-  ctx.fillStyle = "#cdd6ea"; ctx.font = "18px 'Comic Sans MS', cursive";
-  ctx.fillText("You reached Graveyard " + game.graveyard + " and zapped " + game.totalConverted + " skeletons.", VW / 2, VH * 0.42);
-  const bw = clamp(VW * 0.5, 200, 280), bh = 52, gap = 14, cx = VW / 2 - bw / 2;
-  let by = VH * 0.5;
-  titleButton("again", cx, by, bw, bh, "▶ New Game", "#ffd23f", "#5a3c00"); by += bh + gap;
-  titleButton("menu", cx, by, bw, bh, "≡ Main Menu", "#cdd6ea", "#1a2236");
-}
+        /* --- floating text --- */
+        for (const f of game.floats) {
+          f.y -= 0.7;
+          f.life--;
+        }
+        game.floats = game.floats.filter((f) => f.life > 0);
 
-function drawToast() {
-  const a = clamp(toast.t / 30, 0, 1);
-  ctx.globalAlpha = a;
-  ctx.textAlign = "center";
-  ctx.font = "bold 20px 'Comic Sans MS', cursive";
-  const w1 = ctx.measureText(toast.text).width;
-  ctx.font = "14px 'Comic Sans MS', cursive";
-  const w2 = toast.sub ? ctx.measureText(toast.sub).width : 0;
-  const w = Math.max(w1, w2) + 44;
-  const h = toast.sub ? 64 : 44;
-  ctx.fillStyle = "rgba(8,12,22,0.85)"; roundRect(VW / 2 - w / 2, VH * 0.8, w, h, 12); ctx.fill();
-  ctx.strokeStyle = "#3a4f7a"; ctx.lineWidth = 2; roundRect(VW / 2 - w / 2, VH * 0.8, w, h, 12); ctx.stroke();
-  ctx.fillStyle = "#ffd23f"; ctx.font = "bold 20px 'Comic Sans MS', cursive";
-  ctx.fillText(toast.text, VW / 2, VH * 0.8 + 28);
-  if (toast.sub) {
-    ctx.fillStyle = "#bfe9ff"; ctx.font = "14px 'Comic Sans MS', cursive";
-    ctx.fillText(toast.sub, VW / 2, VH * 0.8 + 50);
-  }
-  ctx.globalAlpha = 1;
-}
+        /* --- gate --- */
+        game.gate.open = game.army >= CFG.ARMY_TO_OPEN_GATE;
+        if (game.gate.open) unlock("army15");
+        if (game.gate.open && dist(p.x, p.y, game.gate.x, game.gate.y) < 46) {
+          nextGraveyard();
+        }
 
-function drawBadgePopup() {
-  const t = badgeShow.t;
-  const a = clamp(t / 40, 0, 1) * clamp((200 - t) / 30, 0, 1);
-  ctx.globalAlpha = a;
-  const cx = VW / 2, cy = VH * 0.34;
-  // shield badge
-  ctx.fillStyle = "#ffd23f";
-  ctx.beginPath();
-  ctx.moveTo(cx - 44, cy - 50); ctx.lineTo(cx + 44, cy - 50);
-  ctx.lineTo(cx + 44, cy + 10); ctx.quadraticCurveTo(cx + 44, cy + 50, cx, cy + 62);
-  ctx.quadraticCurveTo(cx - 44, cy + 50, cx - 44, cy + 10); ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "#a37c00"; ctx.lineWidth = 4; ctx.stroke();
-  ctx.textAlign = "center";
-  ctx.font = "30px serif";
-  ctx.fillText(badgeShow.icon || "🏅", cx, cy - 8);
-  ctx.fillStyle = "#5a3c00"; ctx.font = "bold 15px 'Comic Sans MS', cursive";
-  ctx.fillText(badgeShow.name, cx, cy + 26);
-  ctx.fillStyle = "#ffd23f"; ctx.font = "bold 26px 'Comic Sans MS', cursive";
-  ctx.shadowColor = "#000"; ctx.shadowBlur = 8;
-  ctx.fillText("Badge earned!", cx, cy + 96);
-  ctx.shadowBlur = 0;
-  ctx.globalAlpha = 1;
-}
+        updateParticles();
+      }
 
-function dim() { ctx.fillStyle = "rgba(3,5,12,0.74)"; ctx.fillRect(0, 0, VW, VH); }
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
+      function grabPowerup(pu) {
+        spark(pu.x, pu.y, pu.color, 18, 5);
+        floatText(pu.x, pu.y - 20, pu.label, pu.color, 22);
+        Sound.blip(880, 0.12, "triangle", 0.2);
+        if (pu.type === "speed") {
+          game.speedT = CFG.SPEED_TIME;
+          unlock("speedy");
+        } else if (pu.type === "magnet") {
+          game.magnetT = CFG.MAGNET_TIME;
+          unlock("magnet");
+          Sound.zap();
+        } else if (pu.type === "shield") {
+          game.shield = true;
+        } else if (pu.type === "heal") {
+          game.bones = Math.min(CFG.PLAYER_MAX_BONES, game.bones + 1);
+        }
+      }
 
-/* ----------------------------- Main loop -------------------------------- */
-function loop() {
-  update();
-  render();
-  // clear edge-trigger presses
-  for (const k in pressed) pressed[k] = false;
-  requestAnimationFrame(loop);
-}
+      function updateParticles() {
+        for (const pt of game.particles) {
+          pt.x += pt.vx;
+          pt.y += pt.vy;
+          pt.vx *= 0.92;
+          pt.vy *= 0.92;
+          pt.life--;
+        }
+        game.particles = game.particles.filter((pt) => pt.life > 0);
+      }
 
-loop();
-</script>
-</body>
+      function convertEnemy(e) {
+        e.dead = true;
+        game.army++;
+        game.totalConverted++;
+        rebuildFollowers();
+        // combo chain — keep zapping before the timer runs out
+        game.combo++;
+        game.comboT = CFG.COMBO_WINDOW;
+        spark(e.x, e.y, "#9fe8ff", 22, 6);
+        spark(e.x, e.y, "#fff7a8", 10, 4);
+        screenShake = Math.max(screenShake, 4 + Math.min(game.combo, 8));
+        Sound.blip(440 + Math.min(game.combo, 12) * 40, 0.1, "square", 0.16);
+        Sound.zap();
+        if (game.combo >= 2) {
+          floatText(
+            e.x,
+            e.y - 24,
+            "x" + game.combo + (game.combo >= 5 ? "!" : ""),
+            game.combo >= 10
+              ? "#ff5a9e"
+              : game.combo >= 5
+                ? "#ff9b3f"
+                : "#ffd23f",
+            18 + Math.min(game.combo, 10),
+          );
+        }
+        if (game.combo >= 5) unlock("combo5");
+        if (game.combo >= 10) unlock("combo10");
+        checkBadges();
+      }
+
+      function hitPlayer(e) {
+        const p = game.player;
+        // knock the enemy back so it doesn't drain you instantly
+        const a = Math.atan2(e.y - p.y, e.x - p.x);
+        e.x += Math.cos(a) * 60;
+        e.y += Math.sin(a) * 60;
+        e.vx = Math.cos(a) * 6;
+        e.vy = Math.sin(a) * 6;
+        // shield power-up soaks the first hit
+        if (game.shield) {
+          game.shield = false;
+          p.hit = CFG.HIT_COOLDOWN;
+          screenShake = Math.max(screenShake, 7);
+          spark(p.x, p.y, "#8effc0", 18, 5);
+          floatText(p.x, p.y - 24, "BLOCKED!", "#8effc0", 22);
+          Sound.blip(300, 0.14, "triangle", 0.2);
+          unlock("shield");
+          return;
+        }
+        p.hit = CFG.HIT_COOLDOWN;
+        screenShake = Math.max(screenShake, 9);
+        game.hitsThisGY++;
+        game.combo = 0;
+        game.comboT = 0; // a hit breaks your chain
+        if (game.army > 1) {
+          // lose an army skeleton ("a bone")
+          game.army--;
+          rebuildFollowers();
+          spark(p.x, p.y, "#cfe0ff", 16, 5);
+          Sound.hurt();
+          toast = { text: "An enemy got you! −1 skeleton", sub: "", t: 70 };
+        } else {
+          // no army left — lose one of your own bones
+          game.bones--;
+          spark(p.x, p.y, "#ff8a8a", 18, 5);
+          Sound.hurt();
+          if (game.bones <= 0) {
+            state = STATE.OVER;
+          } else {
+            if (game.bones === 1) unlock("lastBone");
+            toast = {
+              text: "Ouch! Lost a bone (" + game.bones + " left)",
+              sub: "",
+              t: 70,
+            };
+          }
+        }
+      }
+
+      function nextGraveyard() {
+        // Flawless: cleared the graveyard you're leaving without taking a hit
+        if (game.hitsThisGY === 0) unlock("flawless");
+        game.graveyard++;
+        doSave(false);
+        Sound.gate();
+        const d = difficulty(game.graveyard);
+        const runners = Math.round(d.count * d.runnerPct);
+        let sub = d.count + " skeletons, faster & fiercer";
+        if (runners > 0)
+          sub += " · " + runners + " runner" + (runners > 1 ? "s" : "") + "!";
+        toast = { text: "Graveyard " + game.graveyard + "!", sub: sub, t: 140 };
+        buildGraveyard();
+        checkBadges();
+      }
+
+      /* Unlock a badge by id — shows the trophy popup the first time only. */
+      function unlock(id) {
+        if (game.badges[id]) return;
+        const b = BADGES.find((x) => x.id === id);
+        if (!b) return;
+        game.badges[id] = true;
+        badgeShow = { icon: b.icon, name: b.name, t: 200 };
+        Sound.badge();
+        doSave(false);
+      }
+      /* Evaluate threshold badges (called after zaps & graveyard changes). */
+      function checkBadges() {
+        if (game.totalConverted >= 1) unlock("first");
+        if (game.totalConverted >= 250) unlock("skel250");
+        if (game.totalConverted >= 1000) unlock("skel1000");
+        if (game.graveyard >= 5) unlock("gy5");
+        if (game.graveyard >= 10) unlock("gy10");
+        if (game.army >= 30) unlock("megaArmy");
+      }
+
+      /* ============================== RENDER ================================== */
+      function render() {
+        uiButtons = [];
+        ctx.clearRect(0, 0, VW, VH);
+
+        if (state === STATE.TITLE) {
+          drawTitle();
+          return;
+        }
+        if (state === STATE.BADGES) {
+          drawBadgesScreen();
+          return;
+        }
+
+        // camera follows player, clamped to world
+        const p = game.player;
+        let camX = clamp(p.x - VW / 2, 0, Math.max(0, CFG.WORLD_W - VW));
+        let camY = clamp(p.y - VH / 2, 0, Math.max(0, CFG.WORLD_H - VH));
+        if (CFG.WORLD_W < VW) camX = (CFG.WORLD_W - VW) / 2;
+        if (CFG.WORLD_H < VH) camY = (CFG.WORLD_H - VH) / 2;
+        let shake = screenShake > 0.4 ? screenShake : 0;
+        const sx = shake ? rand(-shake, shake) : 0;
+        const sy = shake ? rand(-shake, shake) : 0;
+        game.cam.x = camX;
+        game.cam.y = camY;
+
+        ctx.save();
+        ctx.translate(-camX + sx, -camY + sy);
+
+        drawGround();
+        // draw graves & entities sorted by y for depth
+        drawGraves();
+        drawGate();
+        drawElectrifier();
+        drawPowerups();
+        drawEnemies();
+        drawArmy();
+        drawParticles();
+        drawFloats();
+
+        ctx.restore();
+
+        drawFog();
+        drawHUD();
+
+        if (badgeShow) drawBadgePopup();
+        if (toast) drawToast();
+        if (state === STATE.PAUSE) drawPause();
+        if (state === STATE.OVER) drawOver();
+        if (isTouch && state === STATE.PLAY) drawStick();
+      }
+
+      /* ----------------------------- World art -------------------------------- */
+      function drawGround() {
+        // dark grassy graveyard ground with a faint grid of paths
+        ctx.fillStyle = "#0c1320";
+        ctx.fillRect(0, 0, CFG.WORLD_W, CFG.WORLD_H);
+        ctx.fillStyle = "rgba(30,50,40,0.35)";
+        for (let x = 0; x < CFG.WORLD_W; x += 140) {
+          for (let y = 0; y < CFG.WORLD_H; y += 140) {
+            if ((x / 140 + y / 140) % 2 === 0) ctx.fillRect(x, y, 140, 140);
+          }
+        }
+        // border wall
+        ctx.strokeStyle = "#23304a";
+        ctx.lineWidth = 14;
+        ctx.strokeRect(7, 7, CFG.WORLD_W - 14, CFG.WORLD_H - 14);
+        // a few dead trees / scratchy bushes
+      }
+
+      function drawGraves() {
+        for (const g of game.graves) {
+          ctx.save();
+          ctx.translate(g.x, g.y);
+          ctx.rotate(g.lean);
+          // shadow
+          ctx.fillStyle = "rgba(0,0,0,0.35)";
+          ctx.beginPath();
+          ctx.ellipse(0, 26, 24, 8, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#6b7280";
+          ctx.strokeStyle = "#3a4150";
+          ctx.lineWidth = 2;
+          if (g.type === 0) {
+            // rounded headstone
+            ctx.beginPath();
+            ctx.moveTo(-20, 28);
+            ctx.lineTo(-20, -10);
+            ctx.arc(0, -10, 20, Math.PI, 0);
+            ctx.lineTo(20, 28);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = "#3a4150";
+            ctx.font = "bold 12px 'Comic Sans MS', cursive";
+            ctx.textAlign = "center";
+            ctx.fillText("R I P", 0, 2);
+          } else if (g.type === 1) {
+            // cross
+            ctx.fillRect(-6, -28, 12, 56);
+            ctx.fillRect(-18, -16, 36, 12);
+            ctx.strokeRect(-6, -28, 12, 56);
+          } else {
+            // flat slab
+            ctx.beginPath();
+            ctx.moveTo(-22, 28);
+            ctx.lineTo(-16, -16);
+            ctx.lineTo(16, -16);
+            ctx.lineTo(22, 28);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawGate() {
+        const g = game.gate;
+        ctx.save();
+        ctx.translate(g.x, g.y);
+        const open = g.open;
+        // two stone pillars
+        ctx.fillStyle = "#586074";
+        ctx.fillRect(-70, -10, 26, 110);
+        ctx.fillRect(44, -10, 26, 110);
+        ctx.fillStyle = "#454c5e";
+        ctx.fillRect(-74, 86, 148, 18);
+        // arch
+        ctx.strokeStyle = "#586074";
+        ctx.lineWidth = 18;
+        ctx.beginPath();
+        ctx.arc(0, 0, 57, Math.PI, 0);
+        ctx.stroke();
+        // bars / glow
+        if (open) {
+          ctx.fillStyle = "rgba(120,255,180,0.18)";
+          ctx.fillRect(-44, 0, 88, 100);
+          ctx.fillStyle = "#8effc0";
+          ctx.font = "bold 16px 'Comic Sans MS', cursive";
+          ctx.textAlign = "center";
+          ctx.fillText("ENTER ▼", 0, 56);
+          // sparkle
+          if (frame % 6 === 0)
+            spark(g.x + rand(-40, 40), g.y + rand(10, 90), "#8effc0", 1, 2);
+        } else {
+          ctx.strokeStyle = "#2b3242";
+          ctx.lineWidth = 6;
+          for (let i = -3; i <= 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * 12, 0);
+            ctx.lineTo(i * 12, 100);
+            ctx.stroke();
+          }
+          // lock label
+          ctx.fillStyle = "#cdd6ea";
+          ctx.font = "bold 14px 'Comic Sans MS', cursive";
+          ctx.textAlign = "center";
+          ctx.fillText(
+            "🔒 Army " + game.army + "/" + CFG.ARMY_TO_OPEN_GATE,
+            0,
+            56,
+          );
+        }
+        ctx.restore();
+      }
+
+      function drawElectrifier() {
+        const el = game.electrifier;
+        ctx.save();
+        ctx.translate(el.x, el.y);
+        // ground danger ring
+        const pulse = 0.5 + 0.5 * Math.sin(el.charge);
+        ctx.fillStyle = "rgba(90,180,255," + (0.1 + pulse * 0.1) + ")";
+        ctx.beginPath();
+        ctx.arc(0, 0, game.elecR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(150,220,255," + (0.4 + pulse * 0.4) + ")";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath();
+        ctx.arc(
+          0,
+          0,
+          game.elecR,
+          el.charge * 0.3,
+          el.charge * 0.3 + Math.PI * 2,
+        );
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // base
+        ctx.fillStyle = "#3a4150";
+        ctx.beginPath();
+        ctx.ellipse(0, 30, 40, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // pylon
+        ctx.fillStyle = "#7a8499";
+        ctx.beginPath();
+        ctx.moveTo(-16, 30);
+        ctx.lineTo(-7, -34);
+        ctx.lineTo(7, -34);
+        ctx.lineTo(16, 30);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#aab4c8";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+          const yy = 22 - i * 16;
+          ctx.beginPath();
+          ctx.moveTo(-13 + i, yy);
+          ctx.lineTo(13 - i, yy);
+          ctx.stroke();
+        }
+        // coil ball
+        ctx.fillStyle = "#cfe9ff";
+        ctx.beginPath();
+        ctx.arc(0, -42, 14, 0, Math.PI * 2);
+        ctx.fill();
+        // lightning arcs
+        ctx.strokeStyle = "#bfe9ff";
+        ctx.lineWidth = 2;
+        for (let a = 0; a < 4; a++) {
+          ctx.beginPath();
+          let ang = el.charge * 0.7 + a * (Math.PI / 2);
+          let lx = 0,
+            ly = -42;
+          ctx.moveTo(lx, ly);
+          for (let s = 0; s < 4; s++) {
+            ang += rand(-0.5, 0.5);
+            lx += Math.cos(ang) * 12;
+            ly += Math.sin(ang) * 12;
+            ctx.lineTo(lx, ly);
+          }
+          ctx.globalAlpha = 0.6 + pulse * 0.4;
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        // label
+        ctx.fillStyle = "#bfe9ff";
+        ctx.font = "bold 13px 'Comic Sans MS', cursive";
+        ctx.textAlign = "center";
+        ctx.fillText("⚡ ELECTRIFIER", 0, 52);
+        ctx.restore();
+      }
+
+      /* ----------------------------- Skeleton drawing ------------------------- */
+      function drawSkeleton(x, y, scale, opt) {
+        opt = opt || {};
+        const col = opt.color || "#f4f6fb";
+        const eye = opt.eye || "#1a2030";
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale * (opt.dir || 1), scale);
+        if (opt.bob) ctx.translate(0, Math.sin(opt.bob) * 1.5);
+
+        // shadow
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.beginPath();
+        ctx.ellipse(0, 22, 12, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = col;
+        ctx.fillStyle = col;
+        ctx.lineCap = "round";
+        ctx.lineWidth = 3;
+
+        // legs
+        const lk = opt.bob ? Math.sin(opt.bob) * 3 : 0;
+        ctx.beginPath();
+        ctx.moveTo(-3, 6);
+        ctx.lineTo(-5, 14 + lk);
+        ctx.lineTo(-7, 22 + lk);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(3, 6);
+        ctx.lineTo(5, 14 - lk);
+        ctx.lineTo(7, 22 - lk);
+        ctx.stroke();
+        // spine
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(0, 7);
+        ctx.stroke();
+        // ribs
+        for (let i = 0; i < 3; i++) {
+          const ry = -2 + i * 3.5;
+          ctx.beginPath();
+          ctx.moveTo(0, ry);
+          ctx.lineTo(-5, ry + 1);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, ry);
+          ctx.lineTo(5, ry + 1);
+          ctx.stroke();
+        }
+        // arms
+        const aw = opt.bob ? Math.sin(opt.bob) * 2 : 0;
+        ctx.beginPath();
+        ctx.moveTo(0, -2);
+        ctx.lineTo(-8, 2 + aw);
+        ctx.lineTo(-10, 8 + aw);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, -2);
+        ctx.lineTo(8, 2 - aw);
+        ctx.lineTo(10, 8 - aw);
+        ctx.stroke();
+        // skull
+        ctx.beginPath();
+        ctx.arc(0, -10, 7.5, 0, Math.PI * 2);
+        ctx.fill();
+        // jaw
+        ctx.fillRect(-4, -5, 8, 3);
+        // eyes
+        ctx.fillStyle = eye;
+        ctx.beginPath();
+        ctx.arc(-2.6, -11, 1.9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(2.6, -11, 1.9, 0, Math.PI * 2);
+        ctx.fill();
+        // glowing pupils for the player
+        if (opt.glow) {
+          ctx.fillStyle = opt.glow;
+          ctx.beginPath();
+          ctx.arc(-2.6, -11, 0.9, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(2.6, -11, 0.9, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function drawArmy() {
+        const p = game.player;
+        // magnet aura — show the pull is active
+        if (game.magnetT > 0) {
+          const a = 0.2 + 0.15 * Math.sin(frame * 0.3);
+          ctx.strokeStyle = "rgba(255,138,208," + a + ")";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(
+            game.electrifier.x,
+            game.electrifier.y,
+            game.elecR + 18 + Math.sin(frame * 0.2) * 6,
+            0,
+            Math.PI * 2,
+          );
+          ctx.stroke();
+        }
+        // followers first (behind), then the player
+        for (let i = game.followers.length - 1; i >= 0; i--) {
+          const f = game.followers[i];
+          drawSkeleton(f.x, f.y, 1.5, {
+            color: "#dfe8ff",
+            bob: f.bob,
+            dir: game.player.dir,
+          });
+        }
+        // shield bubble
+        if (game.shield) {
+          ctx.strokeStyle = "rgba(142,255,192,0.8)";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y - 6, 24, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(142,255,192,0.12)";
+          ctx.fill();
+        }
+        const flash = p.hit !== undefined && Math.floor(frame / 4) % 2 === 0;
+        drawSkeleton(p.x, p.y, 2.0, {
+          color: flash ? "#ffd2d2" : "#ffffff",
+          glow: "#7df0ff",
+          eye: "#0d1730",
+          bob: p.bob,
+          dir: p.dir,
+        });
+        // little crown so the leader stands out
+        if (!flash) {
+          ctx.fillStyle = "#ffd23f";
+          ctx.beginPath();
+          const cx = p.x,
+            cy = p.y - 26;
+          ctx.moveTo(cx - 9, cy);
+          ctx.lineTo(cx - 9, cy - 7);
+          ctx.lineTo(cx - 4.5, cy - 2);
+          ctx.lineTo(cx, cy - 8);
+          ctx.lineTo(cx + 4.5, cy - 2);
+          ctx.lineTo(cx + 9, cy - 7);
+          ctx.lineTo(cx + 9, cy);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      function drawEnemies() {
+        for (const e of game.enemies) {
+          const runner = e.kind === "runner";
+          // runners are leaner, redder, with a motion streak so you can read the threat
+          if (runner) {
+            const sp = Math.hypot(e.vx, e.vy);
+            if (sp > 1) {
+              ctx.strokeStyle = "rgba(255,90,90,0.35)";
+              ctx.lineWidth = 3;
+              ctx.lineCap = "round";
+              ctx.beginPath();
+              ctx.moveTo(e.x, e.y - 6);
+              ctx.lineTo(e.x - e.vx * 3, e.y - 6 - e.vy * 3);
+              ctx.stroke();
+            }
+          }
+          drawSkeleton(e.x, e.y, runner ? 1.4 : 1.6, {
+            color: runner ? "#ff7a7a" : "#caa0a0",
+            eye: runner ? "#5a0000" : "#3a0d0d",
+            glow: runner ? "#ff3a3a" : null,
+            bob: e.bob,
+            dir: e.vx >= 0 ? 1 : -1,
+          });
+        }
+      }
+
+      function drawParticles() {
+        for (const pt of game.particles) {
+          ctx.globalAlpha = clamp(pt.life / pt.max, 0, 1);
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawPowerups() {
+        for (const pu of game.powerups) {
+          const yy = pu.y + Math.sin(pu.bob) * 5;
+          // glowing pad
+          ctx.fillStyle = pu.color + "33";
+          ctx.beginPath();
+          ctx.arc(pu.x, pu.y + 14, 18, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = pu.color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(pu.x, yy, 16, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(8,12,22,0.7)";
+          ctx.beginPath();
+          ctx.arc(pu.x, yy, 15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.font = "20px serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(pu.icon, pu.x, yy + 1);
+          ctx.textBaseline = "alphabetic";
+        }
+      }
+
+      function drawFloats() {
+        ctx.textAlign = "center";
+        for (const f of game.floats) {
+          ctx.globalAlpha = clamp(f.life / f.max, 0, 1);
+          ctx.font = "bold " + f.size + "px 'Comic Sans MS', cursive";
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "rgba(0,0,0,0.6)";
+          ctx.strokeText(f.text, f.x, f.y);
+          ctx.fillStyle = f.color;
+          ctx.fillText(f.text, f.x, f.y);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      /* ----------------------------- Fog / vignette --------------------------- */
+      function drawFog() {
+        const g = ctx.createRadialGradient(
+          VW / 2,
+          VH / 2,
+          Math.min(VW, VH) * 0.35,
+          VW / 2,
+          VH / 2,
+          Math.max(VW, VH) * 0.7,
+        );
+        g.addColorStop(0, "rgba(0,0,0,0)");
+        g.addColorStop(1, "rgba(2,4,10,0.85)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, VW, VH);
+      }
+
+      /* ----------------------------- HUD -------------------------------------- */
+      function drawHUD() {
+        ctx.textAlign = "left";
+        // panel
+        ctx.fillStyle = "rgba(8,12,22,0.72)";
+        roundRect(10, 10, 248, 96, 12);
+        ctx.fill();
+        ctx.strokeStyle = "#3a4f7a";
+        ctx.lineWidth = 2;
+        roundRect(10, 10, 248, 96, 12);
+        ctx.stroke();
+
+        ctx.fillStyle = "#bfe9ff";
+        ctx.font = "bold 20px 'Comic Sans MS', cursive";
+        ctx.fillText("Army: " + game.army, 24, 38);
+        // gate progress bar
+        const pct = clamp(game.army / CFG.ARMY_TO_OPEN_GATE, 0, 1);
+        ctx.fillStyle = "#1e2740";
+        roundRect(120, 24, 124, 14, 7);
+        ctx.fill();
+        ctx.fillStyle = pct >= 1 ? "#8effc0" : "#ffd23f";
+        roundRect(120, 24, 124 * pct, 14, 7);
+        ctx.fill();
+
+        ctx.fillStyle = "#cdd6ea";
+        ctx.font = "14px 'Comic Sans MS', cursive";
+        ctx.fillText(
+          "Graveyard " +
+            game.graveyard +
+            "   ·   Zapped " +
+            game.totalConverted,
+          24,
+          62,
+        );
+
+        // bones (your personal health, only matters when army is gone)
+        ctx.fillText("Bones:", 24, 86);
+        for (let i = 0; i < CFG.PLAYER_MAX_BONES; i++) {
+          ctx.fillStyle = i < game.bones ? "#f4f6fb" : "#3a4150";
+          ctx.font = "16px serif";
+          ctx.fillText("🦴", 82 + i * 22, 90);
+        }
+
+        // combo meter (under the panel, only while a chain is alive)
+        if (game.combo >= 2) {
+          const cf = clamp(game.comboT / CFG.COMBO_WINDOW, 0, 1);
+          const col =
+            game.combo >= 10
+              ? "#ff5a9e"
+              : game.combo >= 5
+                ? "#ff9b3f"
+                : "#ffd23f";
+          ctx.textAlign = "left";
+          ctx.fillStyle = col;
+          ctx.font = "bold 22px 'Comic Sans MS', cursive";
+          ctx.fillText("🔥 Combo x" + game.combo, 16, 134);
+          ctx.fillStyle = "#1e2740";
+          roundRect(16, 142, 150, 8, 4);
+          ctx.fill();
+          ctx.fillStyle = col;
+          roundRect(16, 142, 150 * cf, 8, 4);
+          ctx.fill();
+        }
+
+        // active power-up timers (top, just right of the panel)
+        let px = 270;
+        if (game.speedT > 0)
+          px = drawPowerHud(px, "💨", game.speedT / CFG.SPEED_TIME, "#7df0ff");
+        if (game.magnetT > 0)
+          px = drawPowerHud(
+            px,
+            "🧲",
+            game.magnetT / CFG.MAGNET_TIME,
+            "#ff8ad0",
+          );
+        if (game.shield) px = drawPowerHud(px, "🛡️", 1, "#8effc0");
+
+        // hint
+        ctx.fillStyle = "#8fa6d8";
+        ctx.font = "13px 'Comic Sans MS', cursive";
+        ctx.textAlign = "center";
+        if (game.army < CFG.ARMY_TO_OPEN_GATE) {
+          ctx.fillText(
+            "Lure enemies into the ⚡Electrifier to grow your army!",
+            VW / 2,
+            26,
+          );
+        } else {
+          ctx.fillText(
+            "Gate open! Head to the top of the graveyard ▲",
+            VW / 2,
+            26,
+          );
+        }
+
+        // top-right buttons: Save / Menu / Mute
+        drawTopButton("save", VW - 64, 14, "💾");
+        drawTopButton("title", VW - 116, 14, "≡");
+        drawTopButton("mute", VW - 168, 14, Sound.muted ? "🔇" : "🔊");
+      }
+      function drawTopButton(id, x, y, label) {
+        const w = 44,
+          h = 40;
+        ctx.fillStyle = "rgba(8,12,22,0.72)";
+        roundRect(x, y, w, h, 10);
+        ctx.fill();
+        ctx.strokeStyle = "#3a4f7a";
+        ctx.lineWidth = 2;
+        roundRect(x, y, w, h, 10);
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.font = "18px serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, x + w / 2, y + h / 2 + 1);
+        ctx.textBaseline = "alphabetic";
+        if (id === "mute") addButton("mute", x, y, w, h, label);
+        else addButton(id, x, y, w, h, label);
+      }
+      function drawPowerHud(x, icon, frac, color) {
+        const w = 50,
+          h = 40,
+          y = 14;
+        ctx.fillStyle = "rgba(8,12,22,0.72)";
+        roundRect(x, y, w, h, 10);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        roundRect(x, y, w, h, 10);
+        ctx.stroke();
+        ctx.font = "20px serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(icon, x + w / 2, y + h / 2 - 3);
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "#1e2740";
+        roundRect(x + 8, y + h - 11, w - 16, 5, 2);
+        ctx.fill();
+        ctx.fillStyle = color;
+        roundRect(x + 8, y + h - 11, (w - 16) * clamp(frac, 0, 1), 5, 2);
+        ctx.fill();
+        return x + w + 8;
+      }
+
+      /* ----------------------------- Touch stick draw ------------------------- */
+      function drawStick() {
+        if (!stick.active) return;
+        const v = stickVec();
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = "#1a2236";
+        ctx.beginPath();
+        ctx.arc(stick.ox, stick.oy, STICK_MAX, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#7df0ff";
+        ctx.beginPath();
+        ctx.arc(stick.ox + v.x, stick.oy + v.y, 26, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      /* ----------------------------- Title ------------------------------------ */
+      const titleSkel = { bob: 0 };
+      function drawTitle() {
+        titleSkel.bob += 0.05;
+        // background
+        const g = ctx.createLinearGradient(0, 0, 0, VH);
+        g.addColorStop(0, "#0a0f1d");
+        g.addColorStop(1, "#05070d");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, VW, VH);
+
+        // moon
+        ctx.fillStyle = "#dfe6ff";
+        ctx.beginPath();
+        ctx.arc(VW * 0.8, VH * 0.22, 54, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#0a0f1d";
+        ctx.beginPath();
+        ctx.arc(VW * 0.83, VH * 0.2, 46, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ground silhouette graves
+        ctx.fillStyle = "#10182a";
+        ctx.fillRect(0, VH * 0.72, VW, VH);
+        ctx.fillStyle = "#1a2440";
+        for (let i = 0; i < 7; i++) {
+          const gx = ((i + 0.5) * VW) / 7 + Math.sin(i) * 20;
+          ctx.beginPath();
+          ctx.moveTo(gx - 22, VH * 0.72);
+          ctx.lineTo(gx - 22, VH * 0.66);
+          ctx.arc(gx, VH * 0.66, 22, Math.PI, 0);
+          ctx.lineTo(gx + 22, VH * 0.72);
+          ctx.fill();
+        }
+
+        // title
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#bfe9ff";
+        ctx.font =
+          "bold " +
+          Math.floor(clamp(VW * 0.085, 34, 78)) +
+          "px 'Comic Sans MS', cursive";
+        ctx.shadowColor = "#2a6cff";
+        ctx.shadowBlur = 24;
+        ctx.fillText("Skeleton", VW / 2, VH * 0.26);
+        ctx.fillText(
+          "Graveyards",
+          VW / 2,
+          VH * 0.26 + clamp(VW * 0.09, 40, 84),
+        );
+        ctx.shadowBlur = 0;
+
+        // dancing skeleton
+        drawSkeleton(VW / 2, VH * 0.55, clamp(VW * 0.012, 3.4, 6), {
+          color: "#fff",
+          glow: "#7df0ff",
+          bob: titleSkel.bob * 6,
+        });
+
+        // buttons: New Game / Resume / Badges / (Quit · Save)
+        const bw = clamp(VW * 0.5, 200, 300),
+          bh = 50,
+          gap = 12;
+        const cx = VW / 2 - bw / 2;
+        let by = VH * 0.62;
+        const save = hasSave();
+        const half = (bw - gap) / 2;
+        titleButton("new", cx, by, bw, bh, "▶  New Game", "#ffd23f", "#5a3c00");
+        by += bh + gap;
+        titleButton(
+          "resume",
+          cx,
+          by,
+          bw,
+          bh,
+          save ? "↻  Resume" : "↻  Resume (no save)",
+          save ? "#8effc0" : "#3a4150",
+          save ? "#0a3a22" : "#222",
+          !save,
+        );
+        by += bh + gap;
+        const earned = BADGES.filter((b) => game.badges[b.id]).length;
+        titleButton(
+          "badges",
+          cx,
+          by,
+          bw,
+          bh,
+          "🏅 Badges  (" + earned + "/" + BADGES.length + ")",
+          "#c8a6ff",
+          "#2a1056",
+        );
+        by += bh + gap;
+        titleButton("quit", cx, by, half, bh, "✕ Quit", "#ff9bb0", "#5a0d20");
+        titleButton(
+          "save",
+          cx + half + gap,
+          by,
+          half,
+          bh,
+          "💾 Save",
+          save ? "#bfe9ff" : "#3a4150",
+          "#0d2440",
+          !save,
+        );
+
+        // footer hint
+        ctx.fillStyle = "#5b6a92";
+        ctx.font = "13px 'Comic Sans MS', cursive";
+        ctx.fillText("Quit returns to the Claude Arcade", VW / 2, by + bh + 24);
+      }
+
+      /* ----------------------------- Badge gallery ---------------------------- */
+      function drawBadgesScreen() {
+        const g = ctx.createLinearGradient(0, 0, 0, VH);
+        g.addColorStop(0, "#0a0f1d");
+        g.addColorStop(1, "#05070d");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, VW, VH);
+
+        const earned = BADGES.filter((b) => game.badges[b.id]).length;
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#c8a6ff";
+        ctx.font =
+          "bold " +
+          Math.floor(clamp(VW * 0.06, 28, 48)) +
+          "px 'Comic Sans MS', cursive";
+        ctx.shadowColor = "#7a3cff";
+        ctx.shadowBlur = 18;
+        ctx.fillText("🏅 Badges", VW / 2, VH * 0.11);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#bfe9ff";
+        ctx.font = "16px 'Comic Sans MS', cursive";
+        ctx.fillText(
+          earned + " of " + BADGES.length + " earned",
+          VW / 2,
+          VH * 0.11 + 28,
+        );
+
+        // grid of badge shields
+        const cols = VW < 560 ? 2 : VW < 820 ? 3 : 4;
+        const cellW = Math.min(200, (VW - 60) / cols);
+        const cellH = 96;
+        const gridW = cols * cellW;
+        const top = VH * 0.18;
+        const rows = Math.ceil(BADGES.length / cols);
+        const startX = VW / 2 - gridW / 2;
+        for (let i = 0; i < BADGES.length; i++) {
+          const b = BADGES[i];
+          const got = !!game.badges[b.id];
+          const r = Math.floor(i / cols),
+            c = i % cols;
+          const x = startX + c * cellW + cellW / 2;
+          const y = top + r * cellH;
+          // shield
+          ctx.globalAlpha = got ? 1 : 0.4;
+          ctx.fillStyle = got ? "#ffd23f" : "#2a3350";
+          ctx.beginPath();
+          ctx.moveTo(x - 26, y - 26);
+          ctx.lineTo(x + 26, y - 26);
+          ctx.lineTo(x + 26, y + 6);
+          ctx.quadraticCurveTo(x + 26, y + 30, x, y + 38);
+          ctx.quadraticCurveTo(x - 26, y + 30, x - 26, y + 6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = got ? "#a37c00" : "#1a2236";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.font = "22px serif";
+          ctx.textBaseline = "middle";
+          ctx.fillText(got ? b.icon : "🔒", x, y - 6);
+          ctx.textBaseline = "alphabetic";
+          // name + desc
+          ctx.fillStyle = got ? "#ffe9a8" : "#5b6a92";
+          ctx.font = "bold 13px 'Comic Sans MS', cursive";
+          ctx.fillText(b.name, x, y + 54);
+          ctx.fillStyle = got ? "#cdd6ea" : "#445";
+          ctx.font = "11px 'Comic Sans MS', cursive";
+          wrapText(b.desc, x, y + 70, cellW - 12, 12);
+          ctx.globalAlpha = 1;
+        }
+
+        // back button
+        const bw = clamp(VW * 0.4, 180, 240),
+          bh = 50;
+        titleButton(
+          "back",
+          VW / 2 - bw / 2,
+          VH - 78,
+          bw,
+          bh,
+          "‹ Back",
+          "#cdd6ea",
+          "#1a2236",
+        );
+      }
+      function wrapText(text, cx, y, maxW, lh) {
+        const words = text.split(" ");
+        let line = "",
+          yy = y;
+        for (const w of words) {
+          const test = line ? line + " " + w : w;
+          if (ctx.measureText(test).width > maxW && line) {
+            ctx.fillText(line, cx, yy);
+            line = w;
+            yy += lh;
+          } else line = test;
+        }
+        if (line) ctx.fillText(line, cx, yy);
+      }
+      function titleButton(id, x, y, w, h, label, fill, textCol, disabled) {
+        ctx.save();
+        ctx.globalAlpha = disabled ? 0.5 : 1;
+        ctx.fillStyle = fill;
+        roundRect(x, y, w, h, 14);
+        ctx.fill();
+        ctx.fillStyle = textCol;
+        ctx.font =
+          "bold " + clamp(w * 0.09, 16, 22) + "px 'Comic Sans MS', cursive";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, x + w / 2, y + h / 2);
+        ctx.textBaseline = "alphabetic";
+        ctx.restore();
+        addButton(id, x, y, w, h, label, { disabled });
+      }
+
+      /* ----------------------------- Overlays --------------------------------- */
+      function drawPause() {
+        dim();
+        ctx.fillStyle = "#bfe9ff";
+        ctx.textAlign = "center";
+        ctx.font = "bold 40px 'Comic Sans MS', cursive";
+        ctx.fillText("Paused", VW / 2, VH * 0.36);
+        const bw = clamp(VW * 0.5, 200, 280),
+          bh = 50,
+          gap = 14,
+          cx = VW / 2 - bw / 2;
+        let by = VH * 0.44;
+        titleButton(
+          "continue",
+          cx,
+          by,
+          bw,
+          bh,
+          "▶ Continue",
+          "#ffd23f",
+          "#5a3c00",
+        );
+        by += bh + gap;
+        titleButton(
+          "save",
+          cx,
+          by,
+          bw,
+          bh,
+          "💾 Save Progress",
+          "#bfe9ff",
+          "#0d2440",
+        );
+        by += bh + gap;
+        titleButton(
+          "title",
+          cx,
+          by,
+          bw,
+          bh,
+          "≡ Main Menu",
+          "#cdd6ea",
+          "#1a2236",
+        );
+        ctx.fillStyle = "#8fa6d8";
+        ctx.font = "13px 'Comic Sans MS', cursive";
+        ctx.fillText("P to resume · M to mute", VW / 2, by + bh + 28);
+      }
+
+      function drawOver() {
+        dim();
+        ctx.fillStyle = "#ff9bb0";
+        ctx.textAlign = "center";
+        ctx.font = "bold 44px 'Comic Sans MS', cursive";
+        ctx.fillText("You crumbled to dust…", VW / 2, VH * 0.34);
+        ctx.fillStyle = "#cdd6ea";
+        ctx.font = "18px 'Comic Sans MS', cursive";
+        ctx.fillText(
+          "You reached Graveyard " +
+            game.graveyard +
+            " and zapped " +
+            game.totalConverted +
+            " skeletons.",
+          VW / 2,
+          VH * 0.42,
+        );
+        const bw = clamp(VW * 0.5, 200, 280),
+          bh = 52,
+          gap = 14,
+          cx = VW / 2 - bw / 2;
+        let by = VH * 0.5;
+        titleButton(
+          "again",
+          cx,
+          by,
+          bw,
+          bh,
+          "▶ New Game",
+          "#ffd23f",
+          "#5a3c00",
+        );
+        by += bh + gap;
+        titleButton(
+          "menu",
+          cx,
+          by,
+          bw,
+          bh,
+          "≡ Main Menu",
+          "#cdd6ea",
+          "#1a2236",
+        );
+      }
+
+      function drawToast() {
+        const a = clamp(toast.t / 30, 0, 1);
+        ctx.globalAlpha = a;
+        ctx.textAlign = "center";
+        ctx.font = "bold 20px 'Comic Sans MS', cursive";
+        const w1 = ctx.measureText(toast.text).width;
+        ctx.font = "14px 'Comic Sans MS', cursive";
+        const w2 = toast.sub ? ctx.measureText(toast.sub).width : 0;
+        const w = Math.max(w1, w2) + 44;
+        const h = toast.sub ? 64 : 44;
+        ctx.fillStyle = "rgba(8,12,22,0.85)";
+        roundRect(VW / 2 - w / 2, VH * 0.8, w, h, 12);
+        ctx.fill();
+        ctx.strokeStyle = "#3a4f7a";
+        ctx.lineWidth = 2;
+        roundRect(VW / 2 - w / 2, VH * 0.8, w, h, 12);
+        ctx.stroke();
+        ctx.fillStyle = "#ffd23f";
+        ctx.font = "bold 20px 'Comic Sans MS', cursive";
+        ctx.fillText(toast.text, VW / 2, VH * 0.8 + 28);
+        if (toast.sub) {
+          ctx.fillStyle = "#bfe9ff";
+          ctx.font = "14px 'Comic Sans MS', cursive";
+          ctx.fillText(toast.sub, VW / 2, VH * 0.8 + 50);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawBadgePopup() {
+        const t = badgeShow.t;
+        const a = clamp(t / 40, 0, 1) * clamp((200 - t) / 30, 0, 1);
+        ctx.globalAlpha = a;
+        const cx = VW / 2,
+          cy = VH * 0.34;
+        // shield badge
+        ctx.fillStyle = "#ffd23f";
+        ctx.beginPath();
+        ctx.moveTo(cx - 44, cy - 50);
+        ctx.lineTo(cx + 44, cy - 50);
+        ctx.lineTo(cx + 44, cy + 10);
+        ctx.quadraticCurveTo(cx + 44, cy + 50, cx, cy + 62);
+        ctx.quadraticCurveTo(cx - 44, cy + 50, cx - 44, cy + 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#a37c00";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.textAlign = "center";
+        ctx.font = "30px serif";
+        ctx.fillText(badgeShow.icon || "🏅", cx, cy - 8);
+        ctx.fillStyle = "#5a3c00";
+        ctx.font = "bold 15px 'Comic Sans MS', cursive";
+        ctx.fillText(badgeShow.name, cx, cy + 26);
+        ctx.fillStyle = "#ffd23f";
+        ctx.font = "bold 26px 'Comic Sans MS', cursive";
+        ctx.shadowColor = "#000";
+        ctx.shadowBlur = 8;
+        ctx.fillText("Badge earned!", cx, cy + 96);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+
+      function dim() {
+        ctx.fillStyle = "rgba(3,5,12,0.74)";
+        ctx.fillRect(0, 0, VW, VH);
+      }
+      function roundRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+
+      /* ----------------------------- Main loop -------------------------------- */
+      function loop() {
+        update();
+        render();
+        // clear edge-trigger presses
+        for (const k in pressed) pressed[k] = false;
+        requestAnimationFrame(loop);
+      }
+
+      loop();
+    </script>
+  </body>
 </html>

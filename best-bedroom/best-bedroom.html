@@ -1,0 +1,1388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Best Bedroom</title>
+    <style>
+      :root {
+        --pink: #ff7bc6;
+        --gold: #ffd23f;
+        --mint: #6fe7c8;
+        --purple: #7c5cff;
+        --deep: #1b1450;
+        --ink: #2c2150;
+        --cream: #fff6ea;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; padding: 0; height: 100%;
+        font-family: "Comic Sans MS", "Comic Sans", "Marker Felt", "Segoe Print", cursive, sans-serif;
+        color: #2c2150;
+        background: radial-gradient(circle at 50% 0%, #2a1f6b 0%, #160f3c 60%, #0a0720 100%);
+        overflow: hidden;
+        user-select: none; -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+      /* ---------------- Top bar ---------------- */
+      #topbar {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 12px;
+        background: linear-gradient(#2a1f6b, #1d1550);
+        border-bottom: 3px solid #ff7bc6;
+        box-shadow: 0 4px 0 rgba(0,0,0,0.35);
+        z-index: 30;
+      }
+      #logo {
+        font-size: clamp(18px, 4.5vw, 30px);
+        color: var(--gold);
+        text-shadow: 2px 2px 0 #7a5000, 0 0 14px rgba(255,210,63,0.4);
+        font-weight: bold; white-space: nowrap; letter-spacing: .5px;
+      }
+      #logo .b1 { color: var(--pink); text-shadow: 2px 2px 0 #5a1030; }
+      .spacer { flex: 1; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.12); color: #fff;
+        border: 2px solid rgba(255,255,255,0.25);
+        border-radius: 999px; padding: 5px 12px; font-size: clamp(13px,3.4vw,18px);
+        white-space: nowrap;
+      }
+      #money-pill { background: rgba(255,210,63,0.18); border-color: var(--gold); color: var(--gold); font-weight: bold; }
+      #money-pill.flash { animation: moneyflash .5s ease; }
+      @keyframes moneyflash { 0%{ transform: scale(1);} 40%{ transform: scale(1.25);} 100%{ transform: scale(1);} }
+
+      /* ---------------- Tabs ---------------- */
+      #tabs { display: flex; gap: 8px; padding: 8px 12px 0; z-index: 25; }
+      .tab {
+        flex: 1; text-align: center; cursor: pointer;
+        padding: 9px 6px; border-radius: 14px 14px 0 0;
+        background: rgba(255,255,255,0.08); color: #cdc6ff;
+        border: 2px solid transparent; border-bottom: none;
+        font-size: clamp(13px,3.6vw,18px); font-weight: bold;
+        transition: background .12s, color .12s, transform .12s;
+      }
+      .tab .ico { font-size: 1.3em; display: block; line-height: 1; }
+      .tab.active { background: var(--cream); color: var(--ink); transform: translateY(2px); }
+
+      /* ---------------- Main panel ---------------- */
+      #panel {
+        flex: 1; margin: 0 12px 12px; background: var(--cream);
+        border-radius: 0 0 18px 18px; border: 3px solid #ffffff;
+        box-shadow: 0 10px 0 rgba(0,0,0,0.3);
+        overflow: hidden; position: relative; min-height: 0;
+      }
+      .view { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; display: none; }
+      .view.active { display: block; }
+      .pad { padding: 16px; }
+
+      h2.sec { margin: 4px 0 14px; color: var(--purple); font-size: clamp(20px,5vw,28px); }
+      .muted { color: #8b82a8; font-size: 14px; }
+
+      /* ---------------- Games grid ---------------- */
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 14px; }
+      .gamecard {
+        cursor: pointer; border-radius: 18px; padding: 16px 12px; text-align: center;
+        color: #fff; border: 3px solid rgba(255,255,255,0.6);
+        box-shadow: 0 6px 0 rgba(0,0,0,0.25); transition: transform .12s, box-shadow .12s;
+        position: relative; overflow: hidden;
+      }
+      .gamecard:hover { transform: translateY(-4px) rotate(-1deg); box-shadow: 0 10px 0 rgba(0,0,0,0.25); }
+      .gamecard .gi { font-size: 46px; line-height: 1; filter: drop-shadow(0 3px 2px rgba(0,0,0,.3)); }
+      .gamecard .gt { font-size: 18px; font-weight: bold; margin: 8px 0 2px; text-shadow: 1px 1px 0 rgba(0,0,0,.3); }
+      .gamecard .gd { font-size: 12.5px; opacity: .95; line-height: 1.25; }
+      .gamecard .best { margin-top: 8px; font-size: 12px; background: rgba(0,0,0,.22); border-radius: 10px; padding: 3px 8px; display: inline-block; }
+      .g1 { background: linear-gradient(145deg,#5ec8ff,#2a7bd6); }
+      .g2 { background: linear-gradient(145deg,#7be37b,#27a35a); }
+      .g3 { background: linear-gradient(145deg,#c79bff,#7c44d6); }
+      .g4 { background: linear-gradient(145deg,#ffc14d,#ff8a3d); }
+
+      /* ---------------- Buttons ---------------- */
+      .btn {
+        cursor: pointer; border: none; border-radius: 14px; font-family: inherit; font-weight: bold;
+        padding: 10px 18px; font-size: 16px; color: #5a3c00; background: var(--gold);
+        box-shadow: 0 4px 0 #a37c00; transition: transform .08s, box-shadow .08s;
+      }
+      .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #a37c00; }
+      .btn.pink { background: var(--pink); color: #5a1030; box-shadow: 0 4px 0 #a8175f; }
+      .btn.pink:active { box-shadow: 0 1px 0 #a8175f; }
+      .btn.purple { background: var(--purple); color: #fff; box-shadow: 0 4px 0 #3f2aa8; }
+      .btn.purple:active { box-shadow: 0 1px 0 #3f2aa8; }
+      .btn.ghost { background: #efe7d6; color: var(--ink); box-shadow: 0 4px 0 #c9bda0; }
+      .btn.small { padding: 6px 12px; font-size: 13px; border-radius: 10px; }
+      .btn:disabled { filter: grayscale(.7) opacity(.7); cursor: default; }
+
+      /* ---------------- Character creator ---------------- */
+      .ccrow { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+      .ccpreview { flex: 0 0 auto; text-align: center; }
+      .ccpreview svg { width: 180px; height: 220px; filter: drop-shadow(0 8px 6px rgba(0,0,0,.25)); }
+      .ccopts { flex: 1; min-width: 240px; }
+      .optlabel { font-weight: bold; color: var(--purple); margin: 14px 0 6px; }
+      .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+      .swatch {
+        width: 54px; height: 54px; border-radius: 12px; cursor: pointer;
+        border: 3px solid transparent; background: #fff; display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 3px 0 rgba(0,0,0,.15);
+      }
+      .swatch svg { width: 44px; height: 44px; }
+      .swatch.sel { border-color: var(--pink); transform: translateY(-2px); }
+      #nameInput {
+        font-family: inherit; font-size: 18px; padding: 8px 12px; border-radius: 12px;
+        border: 3px solid #d8cdb5; width: 100%; max-width: 280px; color: var(--ink); background: #fff;
+      }
+
+      /* ---------------- Bedroom ---------------- */
+      #roomWrap { position: relative; width: 100%; }
+      #roomSvg { width: 100%; display: block; touch-action: none; border-radius: 12px; background: #11102a; }
+      .roomItem { cursor: grab; }
+      .roomItem.dragging { cursor: grabbing; }
+      #shopDrawer {
+        margin-top: 12px; background: #fff; border-radius: 16px; border: 3px solid #efe3cd; padding: 12px;
+      }
+      .shoptabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+      .shoptab { cursor: pointer; padding: 5px 12px; border-radius: 999px; background: #efe7d6; color: var(--ink); font-size: 13px; font-weight: bold; }
+      .shoptab.active { background: var(--purple); color: #fff; }
+      .shopgrid { display: grid; grid-template-columns: repeat(auto-fill,minmax(104px,1fr)); gap: 10px; }
+      .shopitem {
+        background: #fbf5ea; border: 2px solid #e7dcc4; border-radius: 14px; padding: 8px 6px 10px; text-align: center; cursor: pointer;
+        transition: transform .1s, border-color .1s; position: relative;
+      }
+      .shopitem:hover { transform: translateY(-3px); border-color: var(--pink); }
+      .shopitem svg { width: 64px; height: 64px; display: block; margin: 0 auto; }
+      .shopitem .nm { font-size: 12px; margin-top: 4px; line-height: 1.1; }
+      .shopitem .pr { font-size: 12.5px; font-weight: bold; color: #1f9e54; margin-top: 3px; }
+      .shopitem.cant .pr { color: #c23b3b; }
+      .shopitem .owned { position: absolute; top: 4px; right: 6px; font-size: 11px; background: var(--purple); color:#fff; border-radius: 8px; padding: 1px 6px; }
+      .roomtools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+      .stars { color: var(--gold); font-size: 22px; letter-spacing: 2px; text-shadow: 1px 1px 0 #a37c00; }
+
+      /* ---------------- Character buddy (floating challenge giver) ---------------- */
+      #buddy {
+        position: fixed; right: 14px; bottom: 14px; z-index: 40;
+        display: flex; align-items: flex-end; gap: 8px; cursor: pointer;
+      }
+      #buddy svg { width: 78px; height: 96px; filter: drop-shadow(0 6px 5px rgba(0,0,0,.4)); }
+      #buddy.bounce svg { animation: buddyb 1.6s ease-in-out infinite; }
+      @keyframes buddyb { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-7px);} }
+      #buddyBubble {
+        position: fixed; right: 14px; bottom: 118px; z-index: 41; max-width: min(340px, 86vw);
+        background: #fff; color: var(--ink); border: 3px solid var(--purple); border-radius: 16px;
+        padding: 12px 14px; box-shadow: 0 8px 0 rgba(0,0,0,.3); display: none;
+      }
+      #buddyBubble.show { display: block; animation: pop .2s ease; }
+      @keyframes pop { from{ transform: scale(.8); opacity:0;} to{ transform: scale(1); opacity:1;} }
+      #buddyBubble:after {
+        content:""; position: absolute; right: 30px; bottom: -16px;
+        border: 9px solid transparent; border-top-color: var(--purple);
+      }
+      .chTitle { color: var(--pink); font-weight: bold; font-size: 16px; margin-bottom: 4px; }
+      .chReward { color: #1f9e54; font-weight: bold; }
+      .chBar { height: 12px; background: #eee3cf; border-radius: 8px; overflow: hidden; margin: 8px 0 4px; }
+      .chBar > div { height: 100%; background: linear-gradient(90deg,#ff7bc6,#7c5cff); width: 0%; transition: width .4s; }
+
+      /* ---------------- Overlay (minigames / dialogs) ---------------- */
+      #overlay {
+        position: fixed; inset: 0; z-index: 60; display: none;
+        background: rgba(8,5,28,0.82); backdrop-filter: blur(2px);
+        align-items: center; justify-content: center; padding: 14px;
+      }
+      #overlay.show { display: flex; }
+      #modal {
+        width: min(680px, 96vw); max-height: 94vh; overflow: hidden; display: flex; flex-direction: column;
+        background: var(--cream); border-radius: 20px; border: 4px solid #fff;
+        box-shadow: 0 16px 0 rgba(0,0,0,.4);
+      }
+      #modalHead {
+        display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+        background: linear-gradient(#7c5cff,#5b3fd6); color: #fff;
+      }
+      #modalHead .mt { font-size: 20px; font-weight: bold; flex: 1; text-shadow: 1px 1px 0 rgba(0,0,0,.3); }
+      #closeBtn { cursor: pointer; font-size: 22px; line-height: 1; background: rgba(255,255,255,.2); border-radius: 10px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; }
+      #modalBody { padding: 16px; overflow: auto; -webkit-overflow-scrolling: touch; }
+
+      .center { text-align: center; }
+      .big { font-size: clamp(30px,8vw,52px); font-weight: bold; }
+
+      /* Up or Down gauge */
+      #gauge { width: 70px; height: 280px; margin: 50px auto 10px; background: linear-gradient(#dff,#9cf,#69f); border-radius: 999px; position: relative; border: 4px solid #fff; box-shadow: inset 0 0 12px rgba(0,0,0,.2); }
+      #gaugeFill { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(#ff7bc6,#ff3d8a); border-radius: 0 0 999px 999px; transition: height .5s cubic-bezier(.2,1.4,.4,1); }
+      #gaugeNum { position: absolute; left: 50%; transform: translateX(-50%); top: -42px; font-size: 30px; font-weight: bold; color: var(--ink); }
+
+      /* Football */
+      #pitch { background: linear-gradient(#5fce5f,#3aa83a); border-radius: 14px; padding: 14px; color: #fff; text-align: center; position: relative; overflow: hidden; }
+      #pitch .stripes { position: absolute; inset: 0; background: repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 28px, rgba(0,0,0,.04) 28px 56px); }
+      .sum { font-size: clamp(34px,10vw,60px); font-weight: bold; letter-spacing: 2px; position: relative; }
+      .ansInput { font-family: inherit; font-size: 30px; width: 150px; text-align: center; border-radius: 12px; border: 3px solid #fff; padding: 4px; }
+      .keypad { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; max-width: 280px; margin: 12px auto 0; }
+      .keypad .btn { padding: 14px 0; font-size: 22px; }
+
+      /* Map it out */
+      .mgrid { display: grid; gap: 6px; margin: 10px auto; width: max-content; }
+      .mcell { width: 64px; height: 64px; border-radius: 12px; background: #efe7d6; border: 2px dashed #cdbf9f; display: flex; align-items: center; justify-content: center; font-size: 34px; cursor: pointer; }
+      .mcell.fixed { cursor: default; }
+      .mpalette { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+      .mtile { width: 56px; height: 56px; border-radius: 12px; background: #fff; border: 3px solid #e0d4ba; display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer; }
+      .mtile.sel { border-color: var(--pink); transform: translateY(-3px); }
+
+      /* Monarch */
+      .portrait { width: 150px; height: 150px; margin: 0 auto 10px; }
+      .mc-opt { display: block; width: 100%; margin: 8px 0; text-align: left; }
+      .mc-opt.right { background: #7be37b !important; color: #11440f !important; box-shadow: 0 4px 0 #2e8a3a !important; }
+      .mc-opt.wrong { background: #ff8a8a !important; color: #5a0e0e !important; box-shadow: 0 4px 0 #b23232 !important; }
+
+      .reward-pop { font-size: 40px; color: var(--gold); text-shadow: 2px 2px 0 #a37c00; }
+      .hidden { display: none !important; }
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .toast {
+        position: fixed; left: 50%; top: 14px; transform: translateX(-50%) translateY(-80px);
+        background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 14px; z-index: 80;
+        border: 2px solid var(--gold); font-weight: bold; opacity: 0; transition: transform .3s, opacity .3s; pointer-events: none;
+        box-shadow: 0 6px 0 rgba(0,0,0,.4);
+      }
+      .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="topbar">
+        <div id="logo"><span class="b1">Best</span> Bedroom</div>
+        <div class="spacer"></div>
+        <div class="pill" id="rating-pill" title="Bedroom rating">🛏️ <span id="rating-stars">☆☆☆☆☆</span></div>
+        <div class="pill" id="money-pill">💰 £<span id="money">0</span></div>
+      </div>
+
+      <div id="tabs">
+        <div class="tab active" data-view="games"><span class="ico">🎮</span>Games</div>
+        <div class="tab" data-view="bedroom"><span class="ico">🛏️</span>Bedroom</div>
+        <div class="tab" data-view="character"><span class="ico">🙂</span>Character</div>
+      </div>
+
+      <div id="panel">
+        <!-- GAMES -->
+        <div class="view active" id="view-games">
+          <div class="pad">
+            <h2 class="sec">🎮 Mini-Games <span class="muted">— win money for your bedroom!</span></h2>
+            <div class="grid" id="gameGrid"></div>
+            <h2 class="sec" style="margin-top:22px">⏱️ Recent Games</h2>
+            <div id="recentGames" class="muted">No games played yet — pick one above!</div>
+            <div style="height:14px"></div>
+            <div class="row">
+              <button class="btn ghost small" id="saveBtn">💾 Save</button>
+              <button class="btn ghost small" id="quitBtn">🚪 Quit</button>
+              <button class="btn ghost small" id="deleteBtn">🗑️ Delete Save</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- BEDROOM -->
+        <div class="view" id="view-bedroom">
+          <div class="pad">
+            <h2 class="sec">🛏️ Your Bedroom</h2>
+            <div id="roomWrap">
+              <svg id="roomSvg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+            <div class="roomtools">
+              <div class="stars" id="roomStars">☆☆☆☆☆</div>
+              <span class="muted" id="roomValue"></span>
+              <div class="spacer" style="flex:1"></div>
+              <button class="btn small ghost" id="bumpBtn">↔️ Bump items off</button>
+            </div>
+            <p class="muted" style="margin:6px 0 0">Drag furniture to arrange it. Drag onto the 🗑️ bin to sell it back for half price.</p>
+
+            <div id="shopDrawer">
+              <div class="row"><strong style="color:var(--purple);font-size:18px">🛍️ Furniture Shop</strong><span class="spacer" style="flex:1"></span><span class="muted">Tap to buy &amp; place</span></div>
+              <div class="shoptabs" id="shopTabs"></div>
+              <div class="shopgrid" id="shopGrid"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHARACTER -->
+        <div class="view" id="view-character">
+          <div class="pad">
+            <h2 class="sec">🙂 Your Character</h2>
+            <div class="ccrow">
+              <div class="ccpreview">
+                <svg id="ccPreview" viewBox="0 0 100 120"></svg>
+                <div id="ccName" style="font-weight:bold;font-size:20px;color:var(--purple);margin-top:6px"></div>
+                <div class="muted">Your buddy who sets the challenges!</div>
+              </div>
+              <div class="ccopts">
+                <div class="optlabel">🪪 Name</div>
+                <input id="nameInput" maxlength="14" placeholder="Type a name…" />
+                <div class="optlabel">🧠 Head</div>
+                <div class="swatches" id="headSwatches"></div>
+                <div class="optlabel">👕 Body</div>
+                <div class="swatches" id="bodySwatches"></div>
+                <div class="optlabel">🎩 Accessory</div>
+                <div class="swatches" id="accSwatches"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating buddy -->
+    <div id="buddy" class="bounce" title="Your challenge buddy"><svg id="buddySvg" viewBox="0 0 100 120"></svg></div>
+    <div id="buddyBubble"></div>
+
+    <!-- Overlay -->
+    <div id="overlay">
+      <div id="modal">
+        <div id="modalHead"><div class="mt" id="modalTitle">Game</div><div id="closeBtn">✕</div></div>
+        <div id="modalBody"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      "use strict";
+      /* =====================================================================
+         BEST BEDROOM — a single-file browser game.
+         Earn money by playing mini-games, then spend it decorating a lavish
+         bedroom. Customise a little buddy character who sets you challenges.
+         Built from hand-drawn concept art:
+           • Main menu: Games / Bedroom / Character + Save/Quit/Delete + Money
+           • Character: choose Heads, Bodies, Names, Accessories
+           • Bedroom: earn money & customise your bedroom
+           • Mini-games: Up or Down, Football Subtraction, Name that Monarch,
+             Map it Out
+         ===================================================================== */
+
+      const SAVE_KEY = "best-bedroom-save-v1";
+      const $ = (s, r = document) => r.querySelector(s);
+      const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+      const fmt = (n) => Math.round(n).toLocaleString("en-GB");
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      const rnd = (a, b) => a + Math.random() * (b - a);
+      const ri = (a, b) => Math.floor(rnd(a, b + 1));
+      const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+      /* ----------------------------- SVG art helpers ----------------------- */
+      // Character heads. Each returns SVG drawn in a ~36-wide local box.
+      const HEAD_COLORS = {
+        peach:"#f4c08a", brown:"#a9743f", pink:"#ff9ad1", green:"#7bdca0",
+        blue:"#8fb8ff", grey:"#c2c7d6", gold:"#ffd76b"
+      };
+      function headSVG(kind, color) {
+        const c = HEAD_COLORS[color] || color || "#f4c08a";
+        const dark = shade(c, -28);
+        switch (kind) {
+          case "round":
+            return `<g>
+              <ellipse cx="50" cy="40" rx="26" ry="25" fill="${c}" stroke="${dark}" stroke-width="2"/>
+              <circle cx="41" cy="38" r="4" fill="#fff"/><circle cx="42" cy="39" r="2" fill="#222"/>
+              <circle cx="59" cy="38" r="4" fill="#fff"/><circle cx="60" cy="39" r="2" fill="#222"/>
+              <path d="M42 50 q8 7 16 0" stroke="#7a3b2e" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+              <ellipse cx="38" cy="46" rx="4" ry="3" fill="#ff9aa0" opacity=".6"/>
+              <ellipse cx="62" cy="46" rx="4" ry="3" fill="#ff9aa0" opacity=".6"/></g>`;
+          case "square":
+            return `<g>
+              <rect x="26" y="18" width="48" height="46" rx="9" fill="${c}" stroke="${dark}" stroke-width="2"/>
+              <rect x="36" y="34" width="9" height="9" rx="2" fill="#fff"/><rect x="38" y="36" width="4" height="5" fill="#222"/>
+              <rect x="55" y="34" width="9" height="9" rx="2" fill="#fff"/><rect x="57" y="36" width="4" height="5" fill="#222"/>
+              <rect x="42" y="52" width="16" height="3.4" rx="1.7" fill="#7a3b2e"/></g>`;
+          case "cat":
+            return `<g>
+              <path d="M30 24 L36 8 L46 22 Z" fill="${c}" stroke="${dark}" stroke-width="2"/>
+              <path d="M70 24 L64 8 L54 22 Z" fill="${c}" stroke="${dark}" stroke-width="2"/>
+              <ellipse cx="50" cy="42" rx="25" ry="23" fill="${c}" stroke="${dark}" stroke-width="2"/>
+              <ellipse cx="41" cy="40" rx="4" ry="6" fill="#222"/><ellipse cx="59" cy="40" rx="4" ry="6" fill="#222"/>
+              <path d="M47 48 l3 3 l3 -3" stroke="#7a3b2e" stroke-width="2" fill="none"/>
+              <path d="M30 47 h12 M58 47 h12" stroke="${dark}" stroke-width="1.4"/></g>`;
+          case "robot":
+            return `<g>
+              <rect x="46" y="6" width="8" height="10" fill="#9aa3b8"/><circle cx="50" cy="5" r="4" fill="#ff5d5d"/>
+              <rect x="27" y="20" width="46" height="42" rx="10" fill="${c}" stroke="${dark}" stroke-width="2"/>
+              <rect x="33" y="30" width="34" height="16" rx="6" fill="#10202e"/>
+              <circle cx="43" cy="38" r="4.5" fill="#4ff3ff"/><circle cx="57" cy="38" r="4.5" fill="#4ff3ff"/>
+              <rect x="40" y="52" width="20" height="4" rx="2" fill="${dark}"/></g>`;
+          case "alien":
+            return `<g>
+              <ellipse cx="50" cy="42" rx="24" ry="27" fill="${c}" stroke="${dark}" stroke-width="2"/>
+              <path d="M38 16 q4 -10 4 0" stroke="${dark}" stroke-width="2" fill="none"/>
+              <path d="M62 16 q-4 -10 -4 0" stroke="${dark}" stroke-width="2" fill="none"/>
+              <ellipse cx="40" cy="40" rx="6" ry="9" fill="#111" transform="rotate(-12 40 40)"/>
+              <ellipse cx="60" cy="40" rx="6" ry="9" fill="#111" transform="rotate(12 60 40)"/>
+              <circle cx="42" cy="37" r="1.6" fill="#fff"/><circle cx="62" cy="37" r="1.6" fill="#fff"/></g>`;
+          case "star":
+            return `<g>
+              <path d="M50 14 L57 33 L78 33 L61 46 L67 66 L50 53 L33 66 L39 46 L22 33 L43 33 Z" fill="${c}" stroke="${dark}" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="44" cy="41" r="3" fill="#222"/><circle cx="56" cy="41" r="3" fill="#222"/>
+              <path d="M45 47 q5 4 10 0" stroke="#7a3b2e" stroke-width="2" fill="none" stroke-linecap="round"/></g>`;
+          default: return headSVG("round", color);
+        }
+      }
+      const BODY_COLORS = { red:"#e84d4d", blue:"#4d7fe8", green:"#3bbf6a", purple:"#9b5cff", gold:"#ffc24d", teal:"#2fc9c0", pink:"#ff7bc6" };
+      function bodySVG(color) {
+        const c = BODY_COLORS[color] || color || "#4d7fe8";
+        const dark = shade(c, -25), light = shade(c, 22);
+        return `<g>
+          <rect x="34" y="64" width="32" height="34" rx="9" fill="${c}" stroke="${dark}" stroke-width="2"/>
+          <rect x="34" y="64" width="32" height="10" rx="6" fill="${light}" opacity=".7"/>
+          <rect x="24" y="66" width="12" height="26" rx="6" fill="${c}" stroke="${dark}" stroke-width="2"/>
+          <rect x="64" y="66" width="12" height="26" rx="6" fill="${c}" stroke="${dark}" stroke-width="2"/>
+          <circle cx="50" cy="76" r="3" fill="${light}"/><circle cx="50" cy="86" r="3" fill="${light}"/></g>`;
+      }
+      function accSVG(kind) {
+        switch (kind) {
+          case "none": return "";
+          case "bowtie": return `<g><path d="M40 64 L50 70 L40 76 Z" fill="#e8344e"/><path d="M60 64 L50 70 L60 76 Z" fill="#e8344e"/><circle cx="50" cy="70" r="2.6" fill="#a11d31"/></g>`;
+          case "crown": return `<g><path d="M34 16 L40 28 L50 14 L60 28 L66 16 L66 30 L34 30 Z" fill="#ffd23f" stroke="#b8860b" stroke-width="1.6" stroke-linejoin="round"/><circle cx="34" cy="15" r="2.4" fill="#ff5d8f"/><circle cx="50" cy="12" r="2.6" fill="#5cd0ff"/><circle cx="66" cy="15" r="2.4" fill="#7bdc8a"/></g>`;
+          case "glasses": return `<g fill="none" stroke="#222" stroke-width="2"><circle cx="41" cy="40" r="8"/><circle cx="59" cy="40" r="8"/><path d="M49 40 h2 M33 38 l-6 -3 M67 38 l6 -3"/></g>`;
+          case "headphones": return `<g><path d="M28 40 a22 22 0 0 1 44 0" fill="none" stroke="#333" stroke-width="4"/><rect x="24" y="38" width="10" height="16" rx="4" fill="#ff5d8f"/><rect x="66" y="38" width="10" height="16" rx="4" fill="#ff5d8f"/></g>`;
+          case "tophat": return `<g><rect x="36" y="6" width="28" height="20" rx="2" fill="#2b2b3a"/><rect x="30" y="24" width="40" height="5" rx="2.5" fill="#1c1c28"/><rect x="36" y="20" width="28" height="4" fill="#e8344e"/></g>`;
+          case "flower": return `<g transform="translate(66,22)"><circle r="4" fill="#ffd23f"/><circle cx="-5" cy="0" r="3.4" fill="#ff7bc6"/><circle cx="5" cy="0" r="3.4" fill="#ff7bc6"/><circle cx="0" cy="-5" r="3.4" fill="#ff7bc6"/><circle cx="0" cy="5" r="3.4" fill="#ff7bc6"/></g>`;
+          default: return "";
+        }
+      }
+      // Compose a full character SVG (viewBox 0 0 100 120-ish, but our heads use ~0-100 / body at 60-100)
+      function characterSVG(ch) {
+        return `${bodySVG(ch.body)}${headSVG(ch.head, ch.headColor)}${accSVG(ch.acc)}`;
+      }
+
+      // color shade helper
+      function shade(hex, amt) {
+        let c = hex.replace("#", "");
+        if (c.length === 3) c = c.split("").map(x => x + x).join("");
+        const n = parseInt(c, 16);
+        let r = (n >> 16) + amt, g = ((n >> 8) & 255) + amt, b = (n & 255) + amt;
+        r = clamp(r, 0, 255); g = clamp(g, 0, 255); b = clamp(b, 0, 255);
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+      }
+
+      /* ----------------------------- Furniture catalog --------------------- */
+      // Each item: id, name, price, cat, w/h footprint, and svg(w,h) art (100x100 design space).
+      const CATALOG = [
+        // ---- Furniture ----
+        { id:"bed", name:"Cosy Bed", price:60, cat:"Furniture", w:170, h:90, svg:bedArt("#ff8fc4") },
+        { id:"bunk", name:"Bunk Bed", price:220, cat:"Furniture", w:160, h:150, svg:bunkArt() },
+        { id:"desk", name:"Desk", price:70, cat:"Furniture", w:130, h:80, svg:deskArt() },
+        { id:"wardrobe", name:"Wardrobe", price:95, cat:"Furniture", w:90, h:150, svg:wardrobeArt() },
+        { id:"bookshelf", name:"Bookshelf", price:80, cat:"Furniture", w:100, h:140, svg:bookshelfArt() },
+        { id:"beanbag", name:"Beanbag", price:35, cat:"Furniture", w:90, h:70, svg:beanbagArt("#7c5cff") },
+        { id:"sofa", name:"Sofa", price:150, cat:"Furniture", w:160, h:80, svg:sofaArt("#ff6f91") },
+        { id:"vanity", name:"Vanity Table", price:110, cat:"Furniture", w:110, h:120, svg:vanityArt() },
+        // ---- Decoration ----
+        { id:"rug", name:"Fluffy Rug", price:25, cat:"Decoration", w:150, h:70, svg:rugArt("#ffd23f") },
+        { id:"poster", name:"Poster", price:15, cat:"Decoration", w:70, h:95, svg:posterArt() },
+        { id:"plant", name:"Potted Plant", price:22, cat:"Decoration", w:70, h:110, svg:plantArt() },
+        { id:"fairy", name:"Fairy Lights", price:30, cat:"Decoration", w:170, h:50, svg:fairyArt() },
+        { id:"painting", name:"Gold Painting", price:55, cat:"Decoration", w:100, h:80, svg:paintingArt() },
+        { id:"lamp", name:"Floor Lamp", price:40, cat:"Decoration", w:60, h:140, svg:lampArt() },
+        { id:"mirror", name:"Mirror", price:38, cat:"Decoration", w:70, h:120, svg:mirrorArt() },
+        { id:"clock", name:"Wall Clock", price:18, cat:"Decoration", w:60, h:60, svg:clockArt() },
+        { id:"balloons", name:"Balloons", price:28, cat:"Decoration", w:80, h:120, svg:balloonArt() },
+        // ---- Equipment ----
+        { id:"pc", name:"Gaming PC", price:190, cat:"Equipment", w:120, h:90, svg:pcArt() },
+        { id:"tv", name:"Big TV", price:140, cat:"Equipment", w:150, h:100, svg:tvArt() },
+        { id:"console", name:"Game Console", price:85, cat:"Equipment", w:80, h:60, svg:consoleArt() },
+        { id:"telescope", name:"Telescope", price:120, cat:"Equipment", w:90, h:130, svg:telescopeArt() },
+        { id:"aquarium", name:"Aquarium", price:170, cat:"Equipment", w:130, h:90, svg:aquariumArt() },
+        { id:"hoop", name:"Basketball Hoop", price:60, cat:"Equipment", w:80, h:120, svg:hoopArt() },
+        { id:"disco", name:"Disco Ball", price:80, cat:"Equipment", w:70, h:120, svg:discoArt() },
+        { id:"arcade", name:"Arcade Machine", price:240, cat:"Equipment", w:90, h:150, svg:arcadeArt() },
+      ];
+      const CATALOG_BY_ID = Object.fromEntries(CATALOG.map(i => [i.id, i]));
+
+      /* ------ Furniture art functions (return SVG markup, designed ~100x100) ------ */
+      function bedArt(c){const d=shade(c,-30),l=shade(c,25);return `
+        <rect x="6" y="46" width="158" height="40" rx="8" fill="#9a6a3a"/>
+        <rect x="6" y="78" width="14" height="12" fill="#7a4e26"/><rect x="150" y="78" width="14" height="12" fill="#7a4e26"/>
+        <rect x="10" y="40" width="150" height="22" rx="10" fill="#fff" stroke="#e0e0e0"/>
+        <rect x="14" y="30" width="150" height="22" rx="10" fill="${c}"/>
+        <rect x="14" y="30" width="150" height="9" rx="6" fill="${l}" opacity=".7"/>
+        <rect x="18" y="14" width="42" height="30" rx="8" fill="#fff" stroke="#ddd"/>
+        <rect x="64" y="16" width="38" height="26" rx="8" fill="${l}"/>
+        <path d="M14 41 q75 -16 150 0" stroke="${d}" stroke-width="2" fill="none"/>`;}
+      function bunkArt(){return `
+        <rect x="10" y="10" width="10" height="140" fill="#b07a3e"/><rect x="140" y="10" width="10" height="140" fill="#b07a3e"/>
+        <rect x="6" y="18" width="148" height="16" rx="6" fill="#8a5a2a"/>
+        <rect x="14" y="30" width="132" height="20" rx="8" fill="#7bdc8a"/>
+        <rect x="20" y="22" width="34" height="16" rx="6" fill="#fff"/>
+        <rect x="6" y="96" width="148" height="16" rx="6" fill="#8a5a2a"/>
+        <rect x="14" y="108" width="132" height="20" rx="8" fill="#ff8fc4"/>
+        <rect x="20" y="100" width="34" height="16" rx="6" fill="#fff"/>
+        <rect x="120" y="34" width="8" height="78" fill="#8a5a2a"/><rect x="112" y="34" width="8" height="78" fill="#8a5a2a"/>`;}
+      function deskArt(){return `
+        <rect x="6" y="22" width="118" height="14" rx="5" fill="#c98a4b"/>
+        <rect x="6" y="22" width="118" height="5" rx="2.5" fill="#e3b078"/>
+        <rect x="12" y="36" width="10" height="42" fill="#a06a32"/><rect x="108" y="36" width="10" height="42" fill="#a06a32"/>
+        <rect x="74" y="36" width="42" height="30" rx="3" fill="#8a5a2a"/>
+        <rect x="80" y="42" width="30" height="6" rx="3" fill="#6e4520"/><rect x="80" y="54" width="30" height="6" rx="3" fill="#6e4520"/>
+        <rect x="30" y="6" width="34" height="22" rx="3" fill="#222"/><rect x="33" y="9" width="28" height="16" fill="#4ff3ff"/>
+        <rect x="40" y="28" width="14" height="6" fill="#444"/>`;}
+      function wardrobeArt(){return `
+        <rect x="8" y="6" width="74" height="140" rx="6" fill="#b3793e" stroke="#7a4e26" stroke-width="2"/>
+        <rect x="14" y="12" width="30" height="128" rx="4" fill="#caa066"/>
+        <rect x="46" y="12" width="30" height="128" rx="4" fill="#caa066"/>
+        <circle cx="42" cy="76" r="3" fill="#3a2a14"/><circle cx="48" cy="76" r="3" fill="#3a2a14"/>
+        <rect x="14" y="60" width="30" height="2" fill="#a07a40"/>`;}
+      function bookshelfArt(){const cols=["#e84d4d","#4d7fe8","#3bbf6a","#ffc24d","#9b5cff","#ff7bc6","#2fc9c0"];let books="";for(let s=0;s<3;s++){let x=12;const y=18+s*40;while(x<88){const w=ri(5,9),h=ri(20,30);books+=`<rect x="${x}" y="${y+(34-h)}" width="${w}" height="${h}" fill="${pick(cols)}"/>`;x+=w+1;}}return `
+        <rect x="6" y="6" width="92" height="140" rx="5" fill="#9a6a3a" stroke="#6e4520" stroke-width="2"/>
+        <rect x="10" y="48" width="84" height="4" fill="#6e4520"/><rect x="10" y="88" width="84" height="4" fill="#6e4520"/><rect x="10" y="128" width="84" height="4" fill="#6e4520"/>
+        ${books}`;}
+      function beanbagArt(c){const d=shade(c,-30);return `
+        <ellipse cx="50" cy="56" rx="44" ry="20" fill="${d}"/>
+        <path d="M8 52 q4 -40 42 -40 q38 0 42 40 q-42 18 -84 0 Z" fill="${c}"/>
+        <path d="M50 14 q-30 4 -40 36" stroke="${shade(c,25)}" stroke-width="3" fill="none" opacity=".6"/>`;}
+      function sofaArt(c){const d=shade(c,-28),l=shade(c,20);return `
+        <rect x="6" y="40" width="148" height="34" rx="12" fill="${c}"/>
+        <rect x="6" y="30" width="20" height="44" rx="10" fill="${d}"/><rect x="134" y="30" width="20" height="44" rx="10" fill="${d}"/>
+        <rect x="26" y="22" width="108" height="30" rx="10" fill="${l}"/>
+        <rect x="30" y="46" width="48" height="22" rx="8" fill="${l}"/><rect x="82" y="46" width="48" height="22" rx="8" fill="${l}"/>
+        <rect x="20" y="70" width="10" height="10" fill="#5a3b1a"/><rect x="130" y="70" width="10" height="10" fill="#5a3b1a"/>`;}
+      function vanityArt(){return `
+        <rect x="14" y="60" width="82" height="50" rx="5" fill="#e8c8d8" stroke="#c79bb0" stroke-width="2"/>
+        <rect x="20" y="66" width="30" height="38" rx="4" fill="#f6e2ec"/><rect x="60" y="66" width="30" height="38" rx="4" fill="#f6e2ec"/>
+        <circle cx="35" cy="85" r="2.5" fill="#b07a96"/><circle cx="75" cy="85" r="2.5" fill="#b07a96"/>
+        <ellipse cx="55" cy="34" rx="30" ry="32" fill="#cdecff" stroke="#f0c8e0" stroke-width="4"/>
+        <path d="M40 20 q15 -8 30 0" stroke="#fff" stroke-width="3" fill="none" opacity=".7"/>
+        <rect x="50" y="60" width="10" height="4" fill="#c79bb0"/>`;}
+      function rugArt(c){const d=shade(c,-25);return `
+        <ellipse cx="75" cy="35" rx="72" ry="30" fill="${c}" stroke="${d}" stroke-width="3"/>
+        <ellipse cx="75" cy="35" rx="54" ry="20" fill="none" stroke="${shade(c,30)}" stroke-width="3"/>
+        <ellipse cx="75" cy="35" rx="30" ry="11" fill="${shade(c,18)}"/>`;}
+      function posterArt(){return `
+        <rect x="6" y="4" width="58" height="86" rx="3" fill="#222"/>
+        <rect x="10" y="8" width="50" height="78" fill="#ffce4d"/>
+        <circle cx="35" cy="34" r="16" fill="#ff5d8f"/>
+        <path d="M14 80 L35 50 L56 80 Z" fill="#5cd0ff"/>
+        <text x="35" y="82" font-size="9" text-anchor="middle" fill="#222" font-family="sans-serif">★STAR★</text>`;}
+      function plantArt(){return `
+        <path d="M35 60 q-26 -18 -22 -50 q14 6 22 30" fill="#3bbf6a"/>
+        <path d="M35 60 q26 -18 22 -50 q-14 6 -22 30" fill="#46d47a"/>
+        <path d="M35 64 q-4 -34 0 -54" stroke="#2a9a52" stroke-width="3" fill="none"/>
+        <path d="M14 96 L56 96 L50 64 L20 64 Z" fill="#d98a5a" stroke="#b06a3a" stroke-width="2"/>
+        <rect x="16" y="62" width="38" height="8" rx="3" fill="#c2784a"/>`;}
+      function fairyArt(){let b="";for(let i=0;i<9;i++){const x=12+i*18, y=20+Math.sin(i)*6+8;b+=`<line x1="${x}" y1="6" x2="${x}" y2="${y}" stroke="#888" stroke-width="1"/><circle cx="${x}" cy="${y+4}" r="5" fill="${pick(["#ffd23f","#ff7bc6","#5cd0ff","#7bdc8a"])}"/>`;}return `<path d="M6 8 Q85 24 164 8" stroke="#666" stroke-width="1.5" fill="none"/>${b}`;}
+      function paintingArt(){return `
+        <rect x="4" y="4" width="92" height="72" rx="3" fill="#ffd23f" stroke="#b8860b" stroke-width="3"/>
+        <rect x="12" y="12" width="76" height="56" fill="#8fd0ff"/>
+        <rect x="12" y="50" width="76" height="18" fill="#7bdc8a"/>
+        <circle cx="70" cy="26" r="9" fill="#fff36b"/>
+        <path d="M12 50 q18 -16 34 0 q16 -12 30 0" fill="#5fae6a"/>`;}
+      function lampArt(){return `
+        <path d="M14 22 L46 22 L40 4 L20 4 Z" fill="#ffe9a8" stroke="#e0c060" stroke-width="2"/>
+        <rect x="28" y="22" width="4" height="108" fill="#888"/>
+        <ellipse cx="30" cy="134" rx="20" ry="6" fill="#666"/>
+        <ellipse cx="30" cy="20" rx="16" ry="4" fill="#fff7d0" opacity=".7"/>`;}
+      function mirrorArt(){return `
+        <rect x="8" y="6" width="54" height="108" rx="27" fill="#c79bd6" stroke="#a06ab0" stroke-width="3"/>
+        <rect x="16" y="14" width="38" height="92" rx="19" fill="#dff3ff"/>
+        <path d="M24 24 q6 30 0 60" stroke="#fff" stroke-width="5" fill="none" opacity=".7"/>`;}
+      function clockArt(){return `
+        <circle cx="30" cy="30" r="26" fill="#fff" stroke="#7c5cff" stroke-width="4"/>
+        <circle cx="30" cy="30" r="2.4" fill="#333"/>
+        <line x1="30" y1="30" x2="30" y2="14" stroke="#333" stroke-width="2.6"/>
+        <line x1="30" y1="30" x2="42" y2="34" stroke="#333" stroke-width="2.6"/>
+        <circle cx="30" cy="10" r="1.6" fill="#7c5cff"/><circle cx="50" cy="30" r="1.6" fill="#7c5cff"/>`;}
+      function balloonArt(){const cols=["#e84d4d","#ffd23f","#5cd0ff"];let b="";const px=[24,46,30];for(let i=0;i<3;i++){b+=`<ellipse cx="${px[i]}" cy="${20+i*6}" rx="16" ry="20" fill="${cols[i]}"/><path d="M${px[i]} ${40+i*6} q4 20 -2 40" stroke="#aaa" stroke-width="1" fill="none"/>`;}return b;}
+      function pcArt(){return `
+        <rect x="6" y="8" width="74" height="50" rx="4" fill="#1c1c2a"/>
+        <rect x="11" y="13" width="64" height="40" rx="2" fill="#0a1020"/>
+        <path d="M16 46 L34 24 L44 36 L54 20 L70 46 Z" fill="#4ff3ff" opacity=".8"/>
+        <rect x="34" y="58" width="18" height="8" fill="#333"/><rect x="24" y="66" width="40" height="5" rx="2" fill="#555"/>
+        <rect x="86" y="14" width="28" height="64" rx="5" fill="#222"/>
+        <rect x="92" y="22" width="16" height="4" rx="2" fill="#ff3d8a"/><rect x="92" y="30" width="16" height="4" rx="2" fill="#7c5cff"/><rect x="92" y="38" width="16" height="4" rx="2" fill="#4ff3ff"/>
+        <circle cx="100" cy="60" r="8" fill="none" stroke="#4ff3ff" stroke-width="2"/>`;}
+      function tvArt(){return `
+        <rect x="8" y="8" width="134" height="78" rx="6" fill="#15151f"/>
+        <rect x="14" y="14" width="122" height="66" rx="3" fill="#0c2236"/>
+        <path d="M14 60 q30 -40 60 -10 q24 24 62 -6 V80 H14 Z" fill="#1d6fb0"/>
+        <circle cx="44" cy="32" r="9" fill="#ffe97a"/>
+        <rect x="60" y="86" width="36" height="6" fill="#333"/><rect x="40" y="92" width="76" height="6" rx="3" fill="#444"/>`;}
+      function consoleArt(){return `
+        <rect x="8" y="22" width="64" height="30" rx="6" fill="#2a2a3a"/>
+        <circle cx="22" cy="37" r="7" fill="#4ff3ff"/><rect x="40" y="30" width="22" height="14" rx="3" fill="#444"/>
+        <rect x="14" y="8" width="14" height="20" rx="3" fill="#ff3d8a"/><rect x="52" y="8" width="14" height="20" rx="3" fill="#7c5cff"/>`;}
+      function telescopeArt(){return `
+        <rect x="40" y="60" width="6" height="60" fill="#555"/>
+        <path d="M20 110 L43 70 L66 110 Z" fill="none" stroke="#555" stroke-width="4"/>
+        <g transform="rotate(-30 50 40)"><rect x="30" y="30" width="60" height="20" rx="10" fill="#7c5cff"/><circle cx="88" cy="40" r="12" fill="#cdb8ff"/><rect x="26" y="32" width="8" height="16" rx="3" fill="#5b3fd6"/></g>
+        <circle cx="20" cy="20" r="2" fill="#ffd23f"/><circle cx="74" cy="14" r="1.6" fill="#fff"/>`;}
+      function aquariumArt(){return `
+        <rect x="8" y="14" width="116" height="72" rx="6" fill="#bdeeff" stroke="#7fbfd6" stroke-width="3"/>
+        <rect x="8" y="14" width="116" height="72" rx="6" fill="url(#aq)" opacity=".4"/>
+        <rect x="8" y="74" width="116" height="12" fill="#e0cda0"/>
+        <ellipse cx="44" cy="44" rx="12" ry="8" fill="#ff8a3d"/><path d="M56 44 l10 -6 v12 Z" fill="#ff8a3d"/><circle cx="40" cy="42" r="1.6" fill="#222"/>
+        <ellipse cx="86" cy="60" rx="9" ry="6" fill="#ffd23f"/><path d="M95 60 l8 -4 v8 Z" fill="#ffd23f"/>
+        <path d="M30 74 q-3 -20 4 -36" stroke="#3bbf6a" stroke-width="4" fill="none"/><path d="M100 74 q4 -16 -2 -30" stroke="#46d47a" stroke-width="4" fill="none"/>
+        <circle cx="60" cy="30" r="2" fill="#fff" opacity=".8"/><circle cx="66" cy="22" r="1.5" fill="#fff" opacity=".8"/>`;}
+      function hoopArt(){return `
+        <rect x="36" y="20" width="8" height="100" fill="#888"/>
+        <rect x="14" y="6" width="52" height="36" rx="3" fill="#fff" stroke="#e84d4d" stroke-width="3"/>
+        <rect x="30" y="20" width="20" height="14" fill="none" stroke="#e84d4d" stroke-width="2"/>
+        <ellipse cx="40" cy="44" rx="16" ry="5" fill="none" stroke="#ff8a3d" stroke-width="3"/>
+        <path d="M26 44 l4 14 M54 44 l-4 14 M40 47 v14" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="40" cy="70" r="11" fill="#ff8a3d"/><path d="M29 70 h22 M40 59 v22" stroke="#a04a14" stroke-width="1.4"/>`;}
+      function discoArt(){return `
+        <rect x="32" y="0" width="4" height="20" fill="#888"/>
+        <circle cx="34" cy="44" r="24" fill="#cfd6e6"/>
+        <g stroke="#9aa6c0" stroke-width="1"><line x1="10" y1="44" x2="58" y2="44"/><line x1="34" y1="20" x2="34" y2="68"/><line x1="17" y1="27" x2="51" y2="61"/><line x1="51" y1="27" x2="17" y2="61"/></g>
+        <circle cx="26" cy="36" r="3" fill="#ff3d8a"/><circle cx="42" cy="40" r="3" fill="#4ff3ff"/><circle cx="34" cy="52" r="3" fill="#ffd23f"/><circle cx="46" cy="50" r="3" fill="#7bdc8a"/>
+        <path d="M34 68 L8 110 M34 68 L60 110" stroke="#ffd23f" stroke-width="2" opacity=".5"/>`;}
+      function arcadeArt(){return `
+        <rect x="10" y="6" width="70" height="140" rx="8" fill="#7c5cff" stroke="#4f33b0" stroke-width="2"/>
+        <rect x="18" y="14" width="54" height="34" rx="4" fill="#0a1020"/>
+        <path d="M24 42 L36 24 L48 36 L60 20 L66 42 Z" fill="#4ff3ff"/>
+        <rect x="16" y="54" width="58" height="6" rx="3" fill="#ffd23f"/>
+        <rect x="14" y="64" width="62" height="30" rx="4" fill="#2a2150"/>
+        <circle cx="30" cy="79" r="6" fill="#e84d4d"/><circle cx="48" cy="79" r="5" fill="#ffd23f"/><circle cx="62" cy="79" r="5" fill="#7bdc8a"/>
+        <rect x="14" y="100" width="62" height="42" rx="4" fill="#5b3fd6"/>
+        <text x="45" y="128" font-size="14" text-anchor="middle" fill="#ffd23f" font-family="sans-serif" font-weight="bold">PLAY</text>`;}
+
+      /* ----------------------------- State / Save -------------------------- */
+      const DEFAULT_STATE = () => ({
+        money: 30,
+        character: { name:"Buddy", head:"round", headColor:"peach", body:"blue", acc:"bowtie" },
+        room: [],            // [{uid, id, x, y, flip}]
+        challengeIdx: 0,
+        challengeProgressShown: 0,
+        stats: { totalEarned:0, gamesPlayed:0, bestStreak:0, goals:0, monarchs:0, mapBest:0, itemsBought:0 },
+        recent: [],          // [{name, money, when}]
+      });
+      let S = load();
+
+      function load() {
+        try {
+          const raw = localStorage.getItem(SAVE_KEY);
+          if (raw) { const s = JSON.parse(raw); return Object.assign(DEFAULT_STATE(), s); }
+        } catch (e) {}
+        return DEFAULT_STATE();
+      }
+      function save(silent) {
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); if (!silent) toast("💾 Saved!"); }
+        catch (e) { if (!silent) toast("Couldn't save 😢"); }
+      }
+
+      /* ----------------------------- Money / toast ------------------------- */
+      function addMoney(n) {
+        S.money += n;
+        if (n > 0) S.stats.totalEarned += n;
+        const p = $("#money-pill"); p.classList.remove("flash"); void p.offsetWidth; p.classList.add("flash");
+        renderMoney(); checkChallenge(); save(true);
+      }
+      function renderMoney() { $("#money").textContent = fmt(S.money); }
+      let toastT;
+      function toast(msg) {
+        const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+        clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1900);
+      }
+
+      /* ----------------------------- Tabs ---------------------------------- */
+      $$(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.view)));
+      function switchTab(v) {
+        $$(".tab").forEach(x => x.classList.toggle("active", x.dataset.view === v));
+        $$(".view").forEach(x => x.classList.toggle("active", x.id === "view-" + v));
+        if (v === "bedroom") renderRoom();
+        if (v === "character") renderCharacter();
+        if (v === "games") renderRecent();
+      }
+
+      /* ----------------------------- Games list ---------------------------- */
+      const GAMES = [
+        { id:"updown", cls:"g1", icon:"📈", name:"Up or Down", desc:"Higher or lower? Build a streak!", play:playUpDown },
+        { id:"football", cls:"g2", icon:"⚽", name:"Football Subtraction", desc:"Solve sums to score goals!", play:playFootball },
+        { id:"monarch", cls:"g3", icon:"👑", name:"Name that Monarch", desc:"Guess the king or queen!", play:playMonarch },
+        { id:"mapit", cls:"g4", icon:"🗺️", name:"Map it Out", desc:"Memorise the room & rebuild it!", play:playMapIt },
+      ];
+      function renderGames() {
+        $("#gameGrid").innerHTML = GAMES.map(g => `
+          <div class="gamecard ${g.cls}" data-id="${g.id}">
+            <div class="gi">${g.icon}</div>
+            <div class="gt">${g.name}</div>
+            <div class="gd">${g.desc}</div>
+          </div>`).join("");
+        $$("#gameGrid .gamecard").forEach(c =>
+          c.addEventListener("click", () => GAMES.find(g => g.id === c.dataset.id).play()));
+      }
+      function renderRecent() {
+        const r = S.recent;
+        if (!r.length) { $("#recentGames").innerHTML = '<span class="muted">No games played yet — pick one above!</span>'; return; }
+        $("#recentGames").innerHTML = r.slice(0, 6).map(x =>
+          `<div class="row" style="justify-content:space-between;border-bottom:1px dashed #e0d4ba;padding:6px 2px">
+             <span>${x.icon} ${x.name}</span>
+             <strong style="color:#1f9e54">+£${fmt(x.money)}</strong>
+           </div>`).join("");
+      }
+      function recordGame(name, icon, money) {
+        S.stats.gamesPlayed++;
+        S.recent.unshift({ name, icon, money });
+        S.recent = S.recent.slice(0, 10);
+        save(true); renderRecent();
+      }
+
+      /* ----------------------------- Overlay / modal ----------------------- */
+      let onClose = null;
+      function openModal(title, html) {
+        $("#modalTitle").textContent = title;
+        $("#modalBody").innerHTML = html;
+        $("#overlay").classList.add("show");
+      }
+      function closeModal() {
+        $("#overlay").classList.remove("show");
+        if (onClose) { const f = onClose; onClose = null; f(); }
+      }
+      $("#closeBtn").addEventListener("click", closeModal);
+      $("#overlay").addEventListener("click", e => { if (e.target.id === "overlay") closeModal(); });
+
+      // shared end-of-game screen
+      function finishGame(opts) {
+        // opts: {name, icon, money, summary}
+        recordGame(opts.name, opts.icon, opts.money);
+        addMoney(opts.money);
+        $("#modalBody").innerHTML = `
+          <div class="center">
+            <div class="big">${opts.icon}</div>
+            <h2 style="color:var(--purple);margin:6px 0">${opts.summary || "Nice one!"}</h2>
+            <div class="reward-pop">+ £${fmt(opts.money)}</div>
+            <p class="muted">Total money: 💰 £${fmt(S.money)}</p>
+            <div class="row" style="justify-content:center;margin-top:12px">
+              <button class="btn pink" id="playAgain">↻ Play again</button>
+              <button class="btn purple" id="goShop">🛍️ Go shopping</button>
+              <button class="btn ghost" id="doneBtn">Done</button>
+            </div>
+          </div>`;
+        $("#playAgain").onclick = opts.again;
+        $("#goShop").onclick = () => { closeModal(); switchTab("bedroom"); };
+        $("#doneBtn").onclick = closeModal;
+      }
+
+      /* =====================================================================
+         GAME 1 — UP OR DOWN  (higher / lower with a gauge)
+         ===================================================================== */
+      function playUpDown() {
+        let current = ri(2, 99), streak = 0, lives = 3, earned = 0, over = false;
+        openModal("📈 Up or Down", `
+          <div class="center">
+            <p>I'll show a number 1–100. Guess if the <b>next</b> number is higher or lower. Build a streak for bigger payouts!</p>
+            <div id="gauge"><div id="gaugeFill"></div><div id="gaugeNum"></div></div>
+            <div id="udInfo" class="row" style="justify-content:center;gap:18px;font-size:18px">
+              <span>🔥 Streak: <b id="udStreak">0</b></span>
+              <span>❤️ <b id="udLives">3</b></span>
+              <span>💰 <b id="udEarn">0</b></span>
+            </div>
+            <div class="row" style="justify-content:center;margin-top:14px">
+              <button class="btn purple" id="udUp">⬆️ Higher</button>
+              <button class="btn pink" id="udDown">⬇️ Lower</button>
+            </div>
+            <p class="muted" id="udMsg">Higher or lower than <b>${current}</b>?</p>
+          </div>`);
+        const setGauge = (n) => {
+          $("#gaugeFill").style.height = n + "%";
+          $("#gaugeNum").textContent = n;
+        };
+        setGauge(current);
+        const upd = () => { $("#udStreak").textContent = streak; $("#udLives").textContent = lives; $("#udEarn").textContent = "£" + earned; };
+        function guess(dir) {
+          if (over) return;
+          let next = ri(1, 100);
+          while (next === current) next = ri(1, 100);
+          const correct = (dir === "up" && next > current) || (dir === "down" && next < current);
+          setGauge(next);
+          if (correct) {
+            streak++;
+            const gain = 4 + streak * 2;
+            earned += gain;
+            S.stats.bestStreak = Math.max(S.stats.bestStreak, streak);
+            $("#udMsg").innerHTML = `🎉 ${next}! Correct — <b>+£${gain}</b>. Again — higher or lower than <b>${next}</b>?`;
+          } else {
+            lives--;
+            streak = 0;
+            $("#udMsg").innerHTML = `💥 ${next}! Not this time. ${lives>0?`Higher or lower than <b>${next}</b>?`:""}`;
+          }
+          current = next; upd();
+          if (lives <= 0) end();
+        }
+        function end() {
+          over = true;
+          finishGame({ name:"Up or Down", icon:"📈", money: earned,
+            summary: `Best streak ${S.stats.bestStreak}! You banked it.`, again: playUpDown });
+        }
+        $("#udUp").onclick = () => guess("up");
+        $("#udDown").onclick = () => guess("down");
+        upd();
+      }
+
+      /* =====================================================================
+         GAME 2 — FOOTBALL SUBTRACTION
+         ===================================================================== */
+      function playFootball() {
+        let score = 0, time = 45, timer, a, b, finished = false;
+        openModal("⚽ Football Subtraction", `
+          <div id="pitch">
+            <div class="stripes"></div>
+            <div class="row" style="justify-content:space-between;position:relative">
+              <span>⏱️ <b id="fbTime">45</b>s</span>
+              <span>⚽ Goals: <b id="fbScore">0</b></span>
+            </div>
+            <div style="font-size:48px;position:relative" id="fbBall">🥅</div>
+            <div class="sum" id="fbSum">— — —</div>
+            <input class="ansInput" id="fbAns" inputmode="numeric" readonly placeholder="?" />
+            <div class="keypad" id="fbPad">
+              ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="btn" data-k="${n}">${n}</button>`).join("")}
+              <button class="btn ghost" data-k="del">⌫</button>
+              <button class="btn" data-k="0">0</button>
+              <button class="btn pink" data-k="ok">⚽ Shoot!</button>
+            </div>
+            <p class="muted" style="color:#eaffea;position:relative" id="fbMsg">Solve to shoot!</p>
+          </div>`);
+        function newSum() {
+          a = ri(200, 900); b = ri(100, a - 1);
+          $("#fbSum").textContent = `${a} − ${b} =`;
+          $("#fbAns").value = "";
+        }
+        function shoot() {
+          const val = parseInt($("#fbAns").value, 10);
+          if (isNaN(val)) return;
+          if (val === a - b) {
+            score++; $("#fbScore").textContent = score;
+            $("#fbBall").textContent = "⚽🥅"; $("#fbMsg").textContent = "GOAL! 🎉";
+            S.stats.goals++;
+            setTimeout(() => { $("#fbBall").textContent = "🥅"; }, 400);
+            newSum();
+          } else {
+            $("#fbMsg").textContent = `🧤 Saved! ${a} − ${b} = ${a-b}. Keep going!`;
+            $("#fbAns").value = "";
+          }
+        }
+        $("#fbPad").addEventListener("click", e => {
+          const k = e.target.closest("[data-k]"); if (!k) return;
+          const v = k.dataset.k, inp = $("#fbAns");
+          if (v === "ok") shoot();
+          else if (v === "del") inp.value = inp.value.slice(0, -1);
+          else if (inp.value.length < 4) inp.value += v;
+        });
+        document.addEventListener("keydown", fbKey);
+        function fbKey(e){
+          if (!$("#overlay").classList.contains("show")) return;
+          if (e.key >= "0" && e.key <= "9") { const inp=$("#fbAns"); if(inp.value.length<4) inp.value+=e.key; }
+          else if (e.key === "Backspace") $("#fbAns").value = $("#fbAns").value.slice(0,-1);
+          else if (e.key === "Enter") shoot();
+        }
+        newSum();
+        timer = setInterval(() => {
+          time--; $("#fbTime").textContent = time;
+          if (time <= 0) end();
+        }, 1000);
+        function end() {
+          if (finished) return; finished = true;
+          clearInterval(timer);
+          document.removeEventListener("keydown", fbKey);
+          const money = score * 12;
+          finishGame({ name:"Football Subtraction", icon:"⚽", money,
+            summary: `${score} goal${score===1?"":"s"} scored!`, again: playFootball });
+        }
+        onClose = () => { finished = true; clearInterval(timer); document.removeEventListener("keydown", fbKey); };
+      }
+
+      /* =====================================================================
+         GAME 3 — NAME THAT MONARCH
+         ===================================================================== */
+      const MONARCHS = [
+        { name:"Elizabeth II", clue:"Britain's longest-reigning monarch (1952–2022).", years:"1952–2022", g:"q" },
+        { name:"Victoria", clue:"Gave her name to an era; reigned 63 years from 1837.", years:"1837–1901", g:"q" },
+        { name:"Henry VIII", clue:"Famous for having six wives.", years:"1509–1547", g:"k" },
+        { name:"Elizabeth I", clue:"The 'Virgin Queen' who defeated the Spanish Armada.", years:"1558–1603", g:"q" },
+        { name:"Charles III", clue:"The current King of the United Kingdom.", years:"2022–", g:"k" },
+        { name:"George VI", clue:"The reluctant king during World War II.", years:"1936–1952", g:"k" },
+        { name:"William I", clue:"'The Conqueror' — won the Battle of Hastings in 1066.", years:"1066–1087", g:"k" },
+        { name:"Richard III", clue:"His remains were found under a Leicester car park in 2012.", years:"1483–1485", g:"k" },
+        { name:"John", clue:"Forced to seal Magna Carta in 1215.", years:"1199–1216", g:"k" },
+        { name:"Charles I", clue:"Lost his head after the English Civil War.", years:"1625–1649", g:"k" },
+        { name:"Anne", clue:"Last Stuart monarch; united England & Scotland in 1707.", years:"1702–1714", g:"q" },
+        { name:"Edward VIII", clue:"Abdicated in 1936 to marry Wallis Simpson.", years:"1936", g:"k" },
+      ];
+      function monarchPortrait(g){
+        const robe = g==="q" ? "#c0397a" : "#3a5bd6";
+        const skin = "#f0c89a";
+        return `<svg viewBox="0 0 100 100" class="portrait">
+          <rect x="6" y="6" width="88" height="88" rx="8" fill="#ffd23f" stroke="#b8860b" stroke-width="4"/>
+          <rect x="14" y="14" width="72" height="72" fill="#2a2150"/>
+          <path d="M22 86 q28 -30 56 0 Z" fill="${robe}"/>
+          <circle cx="50" cy="48" r="18" fill="${skin}"/>
+          <circle cx="44" cy="46" r="2.4" fill="#222"/><circle cx="56" cy="46" r="2.4" fill="#222"/>
+          <path d="M44 56 q6 5 12 0" stroke="#7a3b2e" stroke-width="2" fill="none" stroke-linecap="round"/>
+          ${g==="q"
+            ? `<path d="M34 76 q16 8 32 0 l-4 -14 q-12 6 -24 0 Z" fill="${shade(robe,20)}"/>`
+            : `<path d="M36 78 q14 6 28 0 l-3 -10 q-11 5 -22 0 Z" fill="${shade(robe,20)}"/>`}
+          <path d="M34 32 L40 20 L50 30 L60 20 L66 32 Z" fill="#ffe27a" stroke="#b8860b" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="50" cy="22" r="2.6" fill="#ff5d8f"/><circle cx="38" cy="22" r="2" fill="#5cd0ff"/><circle cx="62" cy="22" r="2" fill="#7bdc8a"/>
+        </svg>`;
+      }
+      function playMonarch() {
+        let round = 0, correct = 0, total = 6, answered = false;
+        nextQ();
+        function nextQ() {
+          answered = false;
+          const ans = pick(MONARCHS);
+          const opts = [ans];
+          while (opts.length < 4) { const m = pick(MONARCHS); if (!opts.includes(m)) opts.push(m); }
+          shuffle(opts);
+          openModal("👑 Name that Monarch", `
+            <div class="center">
+              <div class="row" style="justify-content:space-between"><span>Round ${round+1}/${total}</span><span>✅ ${correct}</span></div>
+              ${monarchPortrait(ans.g)}
+              <p style="font-size:17px"><b>${ans.g==="q"?"This queen":"This king"}</b> ${ans.clue}</p>
+              <p class="muted">Who am I? <i>(${ans.years})</i></p>
+              <div id="mcOpts"></div>
+            </div>`);
+          const box = $("#mcOpts");
+          opts.forEach(o => {
+            const b = document.createElement("button");
+            b.className = "btn ghost mc-opt";
+            b.textContent = (o.g==="q"?"👸 ":"🤴 ") + o.name;
+            b.onclick = () => {
+              if (answered) return; answered = true;
+              const right = o === ans;
+              if (right) { b.classList.add("right"); correct++; S.stats.monarchs++; }
+              else {
+                b.classList.add("wrong");
+                [...box.children].forEach(c => { if (c.textContent.includes(ans.name)) c.classList.add("right"); });
+              }
+              setTimeout(() => {
+                round++;
+                if (round >= total) endM(); else nextQ();
+              }, 1100);
+            };
+            box.appendChild(b);
+          });
+        }
+        function endM() {
+          const money = correct * 14 + (correct === total ? 20 : 0);
+          finishGame({ name:"Name that Monarch", icon:"👑", money,
+            summary: `${correct}/${total} correct${correct===total?" — perfect! 👑":""}`, again: playMonarch });
+        }
+      }
+
+      /* =====================================================================
+         GAME 4 — MAP IT OUT (memorise a room layout, then rebuild)
+         ===================================================================== */
+      const MAP_ROOMS = [
+        { name:"Kitchen", tiles:["🍳","🧊","🚰","🍽️","🔪","🧂"] },
+        { name:"Bathroom", tiles:["🛁","🚽","🪥","🧼","🪞","🚿"] },
+        { name:"Lounge", tiles:["🛋️","📺","🪴","🕰️","🖼️","☕"] },
+        { name:"Garden", tiles:["🌳","🌸","🦋","⛲","🪺","🐝"] },
+      ];
+      function playMapIt() {
+        const room = pick(MAP_ROOMS);
+        const N = 4, total = N*N;
+        const palette = room.tiles;
+        // build target
+        const target = Array(total).fill(null);
+        const count = ri(5, 7);
+        const spots = shuffle([...Array(total).keys()]).slice(0, count);
+        spots.forEach(i => target[i] = pick(palette));
+        let phase = "show", showLeft = 5, selTile = null, placed = Array(total).fill(null), timer;
+
+        function frame() {
+          openModal("🗺️ Map it Out", `
+            <div class="center">
+              <p>Draw a map of the <b>${room.name}</b>! ${phase==="show"
+                ? `Memorise where everything goes — <b id="mShow">${showLeft}</b>s left.`
+                : `Now rebuild it from memory!`}</p>
+              <div class="mgrid" id="mGrid" style="grid-template-columns:repeat(${N},64px)"></div>
+              <div id="mPaletteWrap"></div>
+              <div id="mActions"></div>
+            </div>`);
+          const grid = $("#mGrid");
+          for (let i = 0; i < total; i++) {
+            const cell = document.createElement("div");
+            cell.className = "mcell";
+            if (phase === "show") { cell.classList.add("fixed"); cell.textContent = target[i] || ""; }
+            else {
+              cell.textContent = placed[i] || "";
+              cell.onclick = () => {
+                if (placed[i]) placed[i] = null;        // tap filled cell to clear
+                else if (selTile) placed[i] = selTile;
+                cell.textContent = placed[i] || "";
+              };
+            }
+            grid.appendChild(cell);
+          }
+          if (phase === "build") {
+            $("#mPaletteWrap").innerHTML = `<p class="muted">Pick an item, then tap a square. Tap a filled square to clear it.</p><div class="mpalette" id="mPal"></div>`;
+            const pal = $("#mPal");
+            palette.forEach(t => {
+              const d = document.createElement("div");
+              d.className = "mtile"; d.textContent = t;
+              d.onclick = () => { selTile = t; [...pal.children].forEach(c=>c.classList.remove("sel")); d.classList.add("sel"); };
+              pal.appendChild(d);
+            });
+            $("#mActions").innerHTML = `<button class="btn pink" id="mDone" style="margin-top:12px">✅ Done — check my map</button>`;
+            $("#mDone").onclick = grade;
+          }
+        }
+        function grade() {
+          let hits = 0;
+          for (let i = 0; i < total; i++) if (placed[i] === target[i] && target[i]) hits++;
+          const money = hits * 9 + (hits === count ? 25 : 0);
+          S.stats.mapBest = Math.max(S.stats.mapBest, hits);
+          finishGame({ name:"Map it Out", icon:"🗺️", money,
+            summary: `${hits}/${count} placed correctly${hits===count?" — flawless map! 🗺️":""}`, again: playMapIt });
+        }
+        frame();
+        timer = setInterval(() => {
+          showLeft--; const el = $("#mShow"); if (el) el.textContent = showLeft;
+          if (showLeft <= 0) { clearInterval(timer); phase = "build"; frame(); }
+        }, 1000);
+        onClose = () => clearInterval(timer);
+      }
+
+      function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+      /* =====================================================================
+         BEDROOM — render room, shop, drag to place
+         ===================================================================== */
+      const ROOM_W = 800, ROOM_H = 500;
+      let shopCat = "Furniture";
+      function renderShopTabs() {
+        const cats = ["Furniture","Decoration","Equipment"];
+        $("#shopTabs").innerHTML = cats.map(c =>
+          `<div class="shoptab ${c===shopCat?"active":""}" data-cat="${c}">${({Furniture:"🛋️",Decoration:"🖼️",Equipment:"🎮"})[c]} ${c}</div>`).join("");
+        $$("#shopTabs .shoptab").forEach(t => t.onclick = () => { shopCat = t.dataset.cat; renderShopTabs(); renderShop(); });
+      }
+      function renderShop() {
+        const items = CATALOG.filter(i => i.cat === shopCat);
+        $("#shopGrid").innerHTML = items.map(it => {
+          const owned = S.room.filter(r => r.id === it.id).length;
+          const cant = S.money < it.price;
+          return `<div class="shopitem ${cant?"cant":""}" data-id="${it.id}">
+            ${owned?`<span class="owned">×${owned}</span>`:""}
+            <svg viewBox="0 0 ${it.w} ${it.h}">${it.svg}</svg>
+            <div class="nm">${it.name}</div>
+            <div class="pr">${cant?"🔒 ":""}£${it.price}</div>
+          </div>`;
+        }).join("");
+        $$("#shopGrid .shopitem").forEach(el => el.onclick = () => buyItem(el.dataset.id));
+      }
+      function buyItem(id) {
+        const it = CATALOG_BY_ID[id];
+        if (S.money < it.price) { toast("Not enough money — go win some! 🎮"); return; }
+        addMoney(-it.price);
+        S.stats.itemsBought++;
+        const uid = "u" + Date.now() + Math.floor(Math.random()*1000);
+        // place at a free-ish spot near middle, staggered
+        const n = S.room.length;
+        const x = clamp(120 + (n%5)*110 + rnd(-20,20), 40, ROOM_W - it.w - 20);
+        const y = clamp(170 + Math.floor(n/5)*70 + rnd(-10,10), 120, ROOM_H - it.h - 10);
+        S.room.push({ uid, id, x, y, flip:false });
+        save(true);
+        toast(`Bought ${it.name}! Drag it to arrange.`);
+        renderRoom(); renderShop(); checkChallenge();
+      }
+
+      function roomRating() {
+        const value = S.room.reduce((s, r) => s + (CATALOG_BY_ID[r.id]?.price || 0), 0);
+        const variety = new Set(S.room.map(r => r.id)).size;
+        // score blends value and variety
+        const score = value + variety * 20;
+        let stars = 0;
+        if (score >= 60) stars = 1;
+        if (score >= 200) stars = 2;
+        if (score >= 450) stars = 3;
+        if (score >= 800) stars = 4;
+        if (score >= 1300) stars = 5;
+        return { value, variety, stars };
+      }
+      function starStr(n){ return "★★★★★".slice(0,n) + "☆☆☆☆☆".slice(0,5-n); }
+
+      function renderRoom() {
+        const svg = $("#roomSvg");
+        const { value, stars } = roomRating();
+        // background: wall + floor + window
+        let bg = `
+          <defs>
+            <linearGradient id="wallG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#efd8ff"/><stop offset="1" stop-color="#d9bcf5"/></linearGradient>
+            <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8ff"/><stop offset="1" stop-color="#ffd9a8"/></linearGradient>
+            <linearGradient id="aq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfefff"/><stop offset="1" stop-color="#5fbfe0"/></linearGradient>
+            <pattern id="dots" width="46" height="46" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="3" fill="#fff" opacity=".35"/></pattern>
+          </defs>
+          <rect x="0" y="0" width="${ROOM_W}" height="350" fill="url(#wallG)"/>
+          <rect x="0" y="0" width="${ROOM_W}" height="350" fill="url(#dots)"/>
+          <!-- floor -->
+          <rect x="0" y="330" width="${ROOM_W}" height="${ROOM_H-330}" fill="#c98f5a"/>
+          <g stroke="#a8743f" stroke-width="2">
+            ${Array.from({length:9},(_,i)=>`<line x1="${i*100}" y1="330" x2="${i*100}" y2="${ROOM_H}"/>`).join("")}
+            <line x1="0" y1="392" x2="${ROOM_W}" y2="392"/><line x1="0" y1="450" x2="${ROOM_W}" y2="450"/>
+          </g>
+          <rect x="0" y="326" width="${ROOM_W}" height="10" fill="#fff" opacity=".7"/>
+          <!-- window -->
+          <g>
+            <rect x="540" y="40" width="200" height="150" rx="8" fill="#fff" stroke="#b89" stroke-width="6"/>
+            <rect x="552" y="52" width="176" height="126" fill="url(#skyG)"/>
+            <circle cx="690" cy="86" r="22" fill="#fff3a8"/>
+            <path d="M552 150 q40 -34 80 -6 q30 24 96 -4 V178 H552 Z" fill="#bfe6a8"/>
+            <line x1="640" y1="52" x2="640" y2="178" stroke="#fff" stroke-width="6"/>
+            <line x1="552" y1="115" x2="728" y2="115" stroke="#fff" stroke-width="6"/>
+          </g>
+          <!-- door -->
+          <g><rect x="60" y="150" width="110" height="180" rx="6" fill="#b3793e" stroke="#7a4e26" stroke-width="5"/>
+             <rect x="72" y="162" width="86" height="70" rx="4" fill="#caa066"/><rect x="72" y="240" width="86" height="80" rx="4" fill="#caa066"/>
+             <circle cx="150" cy="248" r="5" fill="#ffd23f"/></g>`;
+        // placed items (sorted by y so lower items overlap on top)
+        const items = [...S.room].sort((a,b)=>(a.y+(CATALOG_BY_ID[a.id]?.h||0)) - (b.y+(CATALOG_BY_ID[b.id]?.h||0)));
+        let art = "";
+        items.forEach(r => {
+          const it = CATALOG_BY_ID[r.id]; if (!it) return;
+          const sx = r.flip ? -1 : 1;
+          const tx = r.flip ? r.x + it.w : r.x;
+          art += `<g class="roomItem" data-uid="${r.uid}" transform="translate(${tx},${r.y}) scale(${sx},1)">
+            <g transform="scale(1)">${it.svg}</g>
+            <rect x="0" y="0" width="${it.w}" height="${it.h}" fill="transparent"/>
+          </g>`;
+        });
+        // trash bin
+        const bin = `<g id="trashBin" transform="translate(${ROOM_W-70},${ROOM_H-70})">
+            <rect x="-6" y="-6" width="62" height="62" rx="12" fill="rgba(0,0,0,.25)"/>
+            <text x="25" y="42" font-size="40" text-anchor="middle">🗑️</text></g>`;
+        svg.innerHTML = bg + art + bin;
+        bindRoomDrag();
+        // hud
+        $("#roomStars").textContent = starStr(stars);
+        $("#rating-stars").textContent = starStr(stars);
+        $("#roomValue").textContent = `Value £${fmt(value)} · ${S.room.length} item${S.room.length===1?"":"s"}` + (stars===5?" · 👑 BEST BEDROOM!":"");
+        renderShopTabs(); renderShop();
+      }
+
+      // Drag placement with pointer events (works mouse + touch)
+      let drag = null;
+      function bindRoomDrag() {
+        const svg = $("#roomSvg");
+        $$(".roomItem", svg).forEach(g => {
+          g.addEventListener("pointerdown", e => {
+            e.preventDefault();
+            const uid = g.dataset.uid;
+            const rec = S.room.find(r => r.uid === uid);
+            if (!rec) return;
+            const p = toSvg(e);
+            drag = { uid, g, dx: p.x - rec.x, dy: p.y - rec.y, moved:false };
+            g.classList.add("dragging");
+            // bring to front
+            svg.appendChild(g);
+            g.setPointerCapture(e.pointerId);
+          });
+          g.addEventListener("pointermove", e => {
+            if (!drag || drag.uid !== g.dataset.uid) return;
+            const rec = S.room.find(r => r.uid === drag.uid); if (!rec) return;
+            const it = CATALOG_BY_ID[rec.id];
+            const p = toSvg(e);
+            rec.x = clamp(p.x - drag.dx, -20, ROOM_W - it.w + 20);
+            rec.y = clamp(p.y - drag.dy, 30, ROOM_H - it.h + 6);
+            drag.moved = true;
+            const sx = rec.flip ? -1 : 1, tx = rec.flip ? rec.x + it.w : rec.x;
+            g.setAttribute("transform", `translate(${tx},${rec.y}) scale(${sx},1)`);
+            // highlight trash
+            const overBin = p.x > ROOM_W-80 && p.y > ROOM_H-80;
+            const bin = $("#trashBin"); if (bin) bin.style.opacity = overBin ? "0.5" : "1";
+          });
+          const finish = e => {
+            if (!drag || drag.uid !== g.dataset.uid) return;
+            const rec = S.room.find(r => r.uid === drag.uid);
+            g.classList.remove("dragging");
+            const p = toSvg(e);
+            const overBin = p.x > ROOM_W-80 && p.y > ROOM_H-80;
+            if (overBin && rec) {
+              const it = CATALOG_BY_ID[rec.id];
+              S.room = S.room.filter(r => r.uid !== rec.uid);
+              addMoney(Math.round(it.price/2));
+              toast(`Sold ${it.name} for £${Math.round(it.price/2)}`);
+              drag = null; renderRoom(); return;
+            }
+            if (!drag.moved && rec) { rec.flip = !rec.flip; } // tap = flip
+            drag = null; save(true); renderRoom();
+          };
+          g.addEventListener("pointerup", finish);
+          g.addEventListener("pointercancel", finish);
+        });
+      }
+      function toSvg(e) {
+        const svg = $("#roomSvg");
+        const r = svg.getBoundingClientRect();
+        const cx = (e.clientX - r.left) / r.width * ROOM_W;
+        const cy = (e.clientY - r.top) / r.height * ROOM_H;
+        return { x: cx, y: cy };
+      }
+      $("#bumpBtn").addEventListener("click", () => {
+        // tidy: line items along the floor
+        let x = 30;
+        [...S.room].forEach(r => {
+          const it = CATALOG_BY_ID[r.id];
+          r.x = clamp(x, 10, ROOM_W - it.w - 10);
+          r.y = clamp(ROOM_H - it.h - 14, 120, ROOM_H);
+          x += it.w + 14; if (x > ROOM_W - 80) x = 30;
+        });
+        save(true); renderRoom();
+      });
+
+      /* =====================================================================
+         CHARACTER creator
+         ===================================================================== */
+      const HEAD_KINDS = ["round","square","cat","robot","alien","star"];
+      const HEAD_COLOR_KEYS = Object.keys(HEAD_COLORS);
+      const BODY_KEYS = Object.keys(BODY_COLORS);
+      const ACC_KINDS = [["none","🚫"],["bowtie","🎀"],["crown","👑"],["glasses","🤓"],["headphones","🎧"],["tophat","🎩"],["flower","🌸"]];
+      function renderCharacter() {
+        const ch = S.character;
+        $("#ccPreview").innerHTML = characterSVG(ch);
+        $("#buddySvg").innerHTML = characterSVG(ch);
+        $("#ccName").textContent = ch.name || "Buddy";
+        $("#nameInput").value = ch.name || "";
+        // head swatches show the head kind in current colour
+        $("#headSwatches").innerHTML = HEAD_KINDS.map(k =>
+          `<div class="swatch ${k===ch.head?"sel":""}" data-head="${k}"><svg viewBox="20 0 60 70">${headSVG(k, ch.headColor)}</svg></div>`).join("")
+          + HEAD_COLOR_KEYS.map(c =>
+          `<div class="swatch ${c===ch.headColor?"sel":""}" data-hc="${c}" style="background:${HEAD_COLORS[c]}"></div>`).join("");
+        $("#bodySwatches").innerHTML = BODY_KEYS.map(c =>
+          `<div class="swatch ${c===ch.body?"sel":""}" data-body="${c}"><svg viewBox="20 60 60 45">${bodySVG(c)}</svg></div>`).join("");
+        $("#accSwatches").innerHTML = ACC_KINDS.map(([k,em]) =>
+          `<div class="swatch ${k===ch.acc?"sel":""}" data-acc="${k}" style="font-size:26px">${em}</div>`).join("");
+        $$("#headSwatches [data-head]").forEach(s => s.onclick = () => { ch.head = s.dataset.head; postChar(); });
+        $$("#headSwatches [data-hc]").forEach(s => s.onclick = () => { ch.headColor = s.dataset.hc; postChar(); });
+        $$("#bodySwatches [data-body]").forEach(s => s.onclick = () => { ch.body = s.dataset.body; postChar(); });
+        $$("#accSwatches [data-acc]").forEach(s => s.onclick = () => { ch.acc = s.dataset.acc; postChar(); });
+      }
+      function postChar(){ save(true); renderCharacter(); }
+      $("#nameInput").addEventListener("input", e => { S.character.name = e.target.value.slice(0,14); $("#ccName").textContent = S.character.name||"Buddy"; save(true); });
+
+      /* =====================================================================
+         CHALLENGES (buddy sets them)
+         ===================================================================== */
+      const CHALLENGES = [
+        { t:"Welcome!", d:"Play any mini-game once.", reward:15, goal:()=>1, prog:()=>Math.min(1,S.stats.gamesPlayed) },
+        { t:"First Furniture", d:"Buy your first item for your bedroom.", reward:20, goal:()=>1, prog:()=>Math.min(1,S.stats.itemsBought) },
+        { t:"Goal Machine", d:"Score 5 goals in Football Subtraction.", reward:30, goal:()=>5, prog:()=>S.stats.goals },
+        { t:"On a Roll", d:"Get a 5-streak in Up or Down.", reward:30, goal:()=>5, prog:()=>S.stats.bestStreak },
+        { t:"Royal Scholar", d:"Name 6 monarchs correctly (total).", reward:35, goal:()=>6, prog:()=>S.stats.monarchs },
+        { t:"Interior Designer", d:"Place 6 items in your bedroom.", reward:40, goal:()=>6, prog:()=>S.room.length },
+        { t:"Cartographer", d:"Place 5 items correctly in Map it Out.", reward:35, goal:()=>5, prog:()=>S.stats.mapBest },
+        { t:"Three Stars", d:"Reach a 3-star bedroom rating.", reward:60, goal:()=>3, prog:()=>roomRating().stars },
+        { t:"Big Spender", d:"Buy 12 items in total.", reward:50, goal:()=>12, prog:()=>S.stats.itemsBought },
+        { t:"Best Bedroom!", d:"Reach the full 5-star rating.", reward:150, goal:()=>5, prog:()=>roomRating().stars },
+      ];
+      function currentChallenge(){ return CHALLENGES[Math.min(S.challengeIdx, CHALLENGES.length-1)]; }
+      function checkChallenge() {
+        if (S.challengeIdx >= CHALLENGES.length) return;
+        const done = [];
+        let reward = 0;
+        // cascade through every challenge whose goal is already met
+        while (S.challengeIdx < CHALLENGES.length) {
+          const c = currentChallenge();
+          if (c.prog() >= c.goal()) {
+            done.push(c.t); reward += c.reward; S.challengeIdx++;
+          } else break;
+        }
+        if (!done.length) return;
+        addMoneySilent(reward);
+        save(true);
+        const title = done.length === 1
+          ? `🎉 Challenge complete!<br><b>${done[0]}</b>`
+          : `🎉 ${done.length} challenges complete!<br><b>${done.join(", ")}</b>`;
+        buddySay(`${title}<br><span class="chReward">+£${reward} reward!</span>${
+          S.challengeIdx < CHALLENGES.length
+            ? `<br><br>Next up: <b>${currentChallenge().t}</b> — ${currentChallenge().d}`
+            : `<br><br>You've done them all — legend! 👑`}`, true);
+      }
+      function addMoneySilent(n){ S.money += n; S.stats.totalEarned += n; renderMoney();
+        const p=$("#money-pill"); p.classList.remove("flash"); void p.offsetWidth; p.classList.add("flash"); }
+
+      function renderBuddyBubble(forceClosed) {
+        const bub = $("#buddyBubble");
+        if (forceClosed) { bub.classList.remove("show"); return; }
+        if (S.challengeIdx >= CHALLENGES.length) {
+          bub.innerHTML = `<div class="chTitle">${S.character.name||"Buddy"} says:</div>All challenges done — your bedroom is legendary! 👑`;
+          bub.classList.add("show"); return;
+        }
+        const c = currentChallenge();
+        const p = Math.min(c.prog(), c.goal()), pct = Math.round(p/c.goal()*100);
+        bub.innerHTML = `
+          <div class="chTitle">${S.character.name||"Buddy"} challenges you:</div>
+          <div><b>${c.t}</b> — ${c.d}</div>
+          <div class="chBar"><div style="width:${pct}%"></div></div>
+          <div class="row" style="justify-content:space-between"><span class="muted">${p}/${c.goal()}</span><span class="chReward">Reward £${c.reward}</span></div>
+          <div class="muted" style="margin-top:6px">Challenge ${Math.min(S.challengeIdx+1,CHALLENGES.length)} of ${CHALLENGES.length}</div>`;
+        bub.classList.add("show");
+      }
+      let bubbleT;
+      function buddySay(html, sticky) {
+        const bub = $("#buddyBubble");
+        bub.innerHTML = `<div class="chTitle">${S.character.name||"Buddy"} says:</div>${html}`;
+        bub.classList.add("show");
+        clearTimeout(bubbleT);
+        if (!sticky) bubbleT = setTimeout(() => bub.classList.remove("show"), 4000);
+        else bubbleT = setTimeout(() => renderBuddyBubble(), 5000);
+      }
+      let bubbleOpen = false;
+      $("#buddy").addEventListener("click", () => {
+        bubbleOpen = !bubbleOpen;
+        if (bubbleOpen) renderBuddyBubble(); else $("#buddyBubble").classList.remove("show");
+      });
+
+      /* =====================================================================
+         Save / Quit / Delete
+         ===================================================================== */
+      $("#saveBtn").addEventListener("click", () => save());
+      $("#quitBtn").addEventListener("click", () => {
+        save(true);
+        openModal("👋 Quit", `<div class="center">
+          <div class="big">😴</div>
+          <p>Your progress is saved. Come back any time to decorate more!</p>
+          <button class="btn purple" id="resumeBtn">▶ Keep playing</button>
+          <p class="muted" style="margin-top:10px">You can also just close the tab — it's saved.</p>
+        </div>`);
+        $("#resumeBtn").onclick = closeModal;
+      });
+      $("#deleteBtn").addEventListener("click", () => {
+        openModal("🗑️ Delete Save", `<div class="center">
+          <p>This will erase your money, bedroom and character. Are you sure?</p>
+          <div class="row" style="justify-content:center;margin-top:10px">
+            <button class="btn pink" id="confirmDel">Yes, delete everything</button>
+            <button class="btn ghost" id="cancelDel">Cancel</button>
+          </div></div>`);
+        $("#confirmDel").onclick = () => {
+          localStorage.removeItem(SAVE_KEY);
+          S = DEFAULT_STATE();
+          closeModal(); renderAll(); toast("Save deleted — fresh start!");
+        };
+        $("#cancelDel").onclick = closeModal;
+      });
+
+      /* =====================================================================
+         Boot
+         ===================================================================== */
+      function renderAll() {
+        renderMoney();
+        renderGames();
+        renderRecent();
+        renderCharacter();
+        renderRoom();
+        renderBuddyBubble();
+        const { stars } = roomRating();
+        $("#rating-stars").textContent = starStr(stars);
+      }
+      // detect touch to keep things tidy
+      if (matchMedia("(pointer: coarse)").matches) document.body.classList.add("touch");
+      renderAll();
+      // deep-link to a tab via #games / #bedroom / #character
+      const hashTab = (location.hash || "").replace("#", "");
+      if (["games","bedroom","character"].includes(hashTab)) switchTab(hashTab);
+      window.addEventListener("hashchange", () => {
+        const h = (location.hash || "").replace("#", "");
+        if (["games","bedroom","character"].includes(h)) switchTab(h);
+      });
+      // little welcome
+      setTimeout(() => buddySay(`Hi! I'm <b>${S.character.name||"Buddy"}</b>. Win money in the games, then make the <b>best bedroom</b> ever! Tap me any time to see your challenge.`, false), 700);
+      // periodic autosave
+      setInterval(() => save(true), 15000);
+      window.addEventListener("beforeunload", () => save(true));
+    </script>
+  </body>
+</html>
