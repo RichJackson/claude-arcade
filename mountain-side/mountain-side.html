@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Mountain Side</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⛰️</text></svg>" />
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: #0b0820;
+    font-family: "Comic Sans MS", "Comic Sans", "Marker Felt", "Segoe Print", cursive, sans-serif;
+    color: #fff; user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; text-align: center; z-index: 10; }
+  .hidden { display: none !important; }
+
+  /* ---------- loading ---------- */
+  #loading { background: radial-gradient(circle at 50% 30%, #1b1450 0%, #0b0820 70%); z-index: 100; }
+  #loading .bar { width: 240px; height: 18px; border: 3px solid #ff7bc6; border-radius: 12px; margin-top: 18px; }
+  #loading .fill { height: 100%; width: 0%; background: #ffd23f; border-radius: 8px; transition: width .2s; }
+
+  /* ---------- title / "First Page" ---------- */
+  #title { background: rgba(8, 5, 26, 0.55); }
+  #title .paper {
+    background: #fdfbf2; color: #444; border-radius: 18px; padding: 26px 30px 30px;
+    box-shadow: 0 12px 0 rgba(0,0,0,.4); position: relative; width: min(560px, 92vw);
+  }
+  #title img.titleArt { width: min(420px, 80vw); image-rendering: auto; }
+  #title .bossmark { position: absolute; right: 14px; bottom: 10px; width: 110px; opacity: .35; pointer-events: none; }
+  #title .btns { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 18px; position: relative; z-index: 2; }
+  .wobbly {
+    font-family: inherit; font-size: 22px; color: #333; background: #fff;
+    border: 3px solid #444; border-radius: 22px 12px 24px 10px / 12px 24px 10px 22px;
+    padding: 8px 26px; cursor: pointer; box-shadow: 3px 4px 0 rgba(0,0,0,.25);
+    transition: transform .08s;
+  }
+  .wobbly:hover { transform: rotate(-2deg) scale(1.06); background: #fff6d0; }
+  .wobbly:disabled { opacity: .35; cursor: default; transform: none; }
+  .hint { margin-top: 14px; color: #bcb6f0; font-size: 15px; }
+
+  /* ---------- character select ---------- */
+  #select { background: rgba(8, 5, 26, 0.75); overflow-y: auto; }
+  #select h2 { color: #ffd23f; text-shadow: 2px 2px 0 #7a5000; font-size: 34px; margin: 10px 0 4px; }
+  #select img.groupArt { width: min(300px, 60vw); background: #fdfbf2; border-radius: 14px; padding: 8px; }
+  #select .cards { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin: 16px 8px; }
+  .charCard {
+    width: 168px; background: #fdfbf2; color: #333; border: 4px solid #b8b2e8; border-radius: 18px;
+    padding: 12px 10px; cursor: pointer; transition: transform .1s, border-color .1s;
+  }
+  .charCard:hover { transform: translateY(-5px) rotate(-1deg); border-color: #ffd23f; }
+  .charCard.sel { border-color: #ff7bc6; box-shadow: 0 0 18px rgba(255,123,198,.7); }
+  .charCard img { height: 92px; max-width: 140px; object-fit: contain; }
+  .charCard .nm { font-size: 21px; font-weight: bold; }
+  .charCard .st { font-size: 13px; line-height: 1.35; color: #555; }
+  .charCard .st b { color: #a3308f; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #hud .box { position: absolute; background: rgba(10,8,30,.55); border-radius: 14px; padding: 8px 12px; }
+  #me { top: 12px; left: 12px; display: flex; gap: 10px; align-items: center; }
+  #me img { height: 54px; }
+  .hpbar { width: 130px; height: 14px; border: 2px solid #fff; border-radius: 8px; background: rgba(0,0,0,.4); }
+  .hpbar > div { height: 100%; border-radius: 6px; background: #6fe26f; width: 100%; transition: width .2s; }
+  #me .pow { font-size: 12px; color: #ffd23f; }
+  #team { top: 12px; left: 210px; display: flex; gap: 12px; }
+  .mate { text-align: center; font-size: 11px; }
+  .mate img { height: 40px; display: block; margin: 0 auto; }
+  .mate .hpbar { width: 56px; height: 8px; }
+  .mate .badge { font-size: 14px; }
+  #inv { top: 12px; right: 12px; font-size: 17px; text-align: right; line-height: 1.5; }
+  #tasks { top: 128px; right: 12px; font-size: 13px; text-align: left; max-width: 250px; line-height: 1.55; }
+  #tasks .lvl { color: #ffd23f; }
+  #jinky { bottom: 14px; left: 12px; display: flex; align-items: center; gap: 8px; }
+  #jinky img { height: 46px; }
+  #jinky.alert img { animation: shake .18s infinite; }
+  @keyframes shake { 0%{transform:rotate(-8deg)} 50%{transform:rotate(8deg)} 100%{transform:rotate(-8deg)} }
+  #prompt { position: absolute; bottom: 68px; left: 50%; transform: translateX(-50%);
+            font-size: 19px; color: #fff; background: rgba(10,8,30,.65); border-radius: 12px;
+            padding: 6px 18px; }
+  #toast { position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
+           font-size: 20px; color: #ffd23f; background: rgba(10,8,30,.75); border-radius: 12px;
+           padding: 8px 20px; max-width: 80vw; }
+  #compass { position: absolute; top: 140px; left: 50%; transform: translateX(-50%);
+             font-size: 26px; color: #9fe8ff; }
+  #cross { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; margin: -3px;
+           background: #fff; border-radius: 50%; box-shadow: 0 0 4px #000; }
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0;
+              background: radial-gradient(circle at 50% 50%, transparent 30%, rgba(160,0,20,.95) 100%); }
+  #vignette .warn { position: absolute; top: 24%; width: 100%; text-align: center; font-size: 40px;
+                    color: #ff4444; text-shadow: 2px 2px 0 #000; }
+  #tint { position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0;
+          background: rgba(30, 60, 190, .35); }
+
+  /* ---------- dialog ---------- */
+  #dialog { background: rgba(8, 5, 26, .45); z-index: 20; }
+  #dialog .paper { background: #fdfbf2; color: #333; border-radius: 18px; padding: 20px 26px;
+                   width: min(480px, 90vw); box-shadow: 0 10px 0 rgba(0,0,0,.4); }
+  #dialog img { height: 84px; max-width: 220px; object-fit: contain; }
+  #dTitle { font-size: 24px; color: #a3308f; margin: 6px 0; }
+  #dText { font-size: 18px; line-height: 1.4; margin-bottom: 14px; }
+  #dBtns { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  #dBtns .wobbly { font-size: 18px; padding: 6px 20px; }
+
+  /* ---------- group menu ---------- */
+  #groupMenu { background: rgba(8, 5, 26, .55); z-index: 20; }
+  #groupMenu .paper { background: #fdfbf2; color: #333; border-radius: 18px; padding: 20px 26px; }
+  #groupMenu h3 { color: #a3308f; font-size: 24px; margin: 0 0 12px; }
+  #groupMenu .wobbly { display: block; margin: 10px auto; width: 300px; font-size: 18px; }
+
+  /* ---------- faint / dead / win ---------- */
+  #faint { background: rgba(40,40,50,.72); z-index: 25; }
+  #faint h2, #dead h2 { font-size: 42px; text-shadow: 3px 3px 0 #000; }
+  #dead { background: rgba(30,0,10,.82); z-index: 25; }
+  #win { background: rgba(8, 5, 26, .88); z-index: 30; overflow: hidden; }
+  #win img { background: #fdfbf2; border-radius: 14px; padding: 8px; margin: 8px; }
+  #win h1 { color: #ffd23f; font-size: clamp(30px, 6vw, 54px); text-shadow: 3px 3px 0 #7a5000; margin: 8px; }
+  .confetti { position: absolute; top: -40px; font-size: 26px; animation: fall linear infinite; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+  /* ---------- touch controls ---------- */
+  #touchbar { position: fixed; bottom: 10px; right: 10px; display: none; gap: 8px; z-index: 8; flex-wrap: wrap;
+              justify-content: flex-end; max-width: 46vw; }
+  body.touch #touchbar { display: flex; }
+  .tbtn { width: 58px; height: 58px; border-radius: 50%; background: rgba(255,255,255,.18);
+          border: 2px solid rgba(255,255,255,.5); color: #fff; font-size: 13px;
+          font-family: inherit; display: flex; align-items: center; justify-content: center; }
+  .tbtn:active { background: rgba(255,210,63,.5); }
+  #stick { position: fixed; display: none; width: 110px; height: 110px; border-radius: 50%;
+           border: 2px solid rgba(255,255,255,.4); z-index: 8; pointer-events: none; }
+  #stickKnob { position: absolute; width: 44px; height: 44px; border-radius: 50%;
+               background: rgba(255,255,255,.45); left: 33px; top: 33px; }
+  .credit { position: fixed; bottom: 6px; right: 10px; font-size: 11px; color: rgba(255,255,255,.45); z-index: 3; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="loading" class="overlay">
+  <div style="font-size:34px;color:#ff7bc6;text-shadow:3px 3px 0 #5a1030">Mountain Side</div>
+  <div>waking up the mountain…</div>
+  <div class="bar"><div class="fill" id="loadFill"></div></div>
+</div>
+
+<div id="title" class="overlay hidden">
+  <div class="paper">
+    <img class="titleArt" id="titleArt" alt="Mountain Side" />
+    <img class="bossmark" id="bossMark" alt="" />
+    <div class="btns">
+      <button class="wobbly" id="btnResume">Resume</button>
+      <button class="wobbly" id="btnNew">New Game</button>
+      <button class="wobbly" id="btnPlay">Play</button>
+      <button class="wobbly" id="btnSave">Save</button>
+      <button class="wobbly" id="btnQuit">Quit</button>
+    </div>
+  </div>
+  <div class="hint" id="titleHint">WASD move &nbsp;·&nbsp; mouse look &nbsp;·&nbsp; Space jump / fly &nbsp;·&nbsp; Y shoot &nbsp;·&nbsp; K collect &nbsp;·&nbsp; E speak &nbsp;·&nbsp; N med kit &nbsp;·&nbsp; J group &nbsp;·&nbsp; B explore &nbsp;·&nbsp; X dive &nbsp;·&nbsp; 1/2 juice &amp; cookies &nbsp;·&nbsp; C come back alive &nbsp;·&nbsp; P pause &nbsp;·&nbsp; M mute</div>
+</div>
+
+<div id="select" class="overlay hidden">
+  <h2>Choose your character!</h2>
+  <img class="groupArt" id="groupArt" alt="the team" />
+  <div class="cards" id="cards"></div>
+  <button class="wobbly" id="btnGo" disabled>Let's go!</button>
+  <div class="hint">The other three come along — the computer controls them.</div>
+</div>
+
+<div id="hud" class="hidden">
+  <div class="box" id="me"><img id="meImg" alt="" /><div><div class="hpbar"><div id="meHp"></div></div><div class="pow" id="mePow"></div></div></div>
+  <div class="box" id="team"></div>
+  <div class="box" id="inv"></div>
+  <div class="box" id="tasks"></div>
+  <div class="box" id="jinky"><img id="jinkyImg" alt="Jinky" /><span id="jinkyTxt">zzz</span></div>
+  <div id="prompt" class="hidden"></div>
+  <div id="toast" class="hidden"></div>
+  <div id="compass" class="hidden"></div>
+  <div id="cross"></div>
+</div>
+<div id="vignette"><div class="warn">LOOK AWAY!</div></div>
+<div id="tint"></div>
+
+<div id="dialog" class="overlay hidden">
+  <div class="paper">
+    <img id="dImg" alt="" /><div id="dTitle"></div><div id="dText"></div><div id="dBtns"></div>
+  </div>
+</div>
+
+<div id="groupMenu" class="overlay hidden">
+  <div class="paper">
+    <h3>Group decision!</h3>
+    <button class="wobbly" data-mode="rescue">Rescue — someone is in danger!</button>
+    <button class="wobbly" data-mode="stick">Stick together</button>
+    <button class="wobbly" data-mode="spread">Spread out and search</button>
+    <button class="wobbly" data-mode="home">Everyone back to HQ</button>
+  </div>
+</div>
+
+<div id="faint" class="overlay hidden">
+  <h2>You fainted!</h2><div id="faintTxt" style="font-size:22px"></div>
+</div>
+<div id="dead" class="overlay hidden">
+  <h2>Oh no… you died!</h2><div id="deadTxt" style="font-size:22px;margin-bottom:16px"></div>
+  <div><button class="wobbly" id="btnDeadNew">New Game</button></div>
+  <div class="hint">…or press C to come back alive!</div>
+</div>
+<div id="win" class="overlay hidden">
+  <h1 id="winTitle">YOU BEAT THE MUMMIES!!!</h1>
+  <div><img id="winGroup" style="height:150px" alt="" /><img id="winPyr" style="height:150px" alt="" /></div>
+  <div id="winText" style="font-size:20px;max-width:600px;line-height:1.45">You beat the mummies!</div>
+  <div style="margin-top:16px"><button class="wobbly" id="btnWinNew">Keep exploring! ⛰️</button>
+  <button class="wobbly" id="btnWinQuit">Back to arcade</button></div>
+</div>
+
+<div id="touchbar">
+  <button class="tbtn" data-k="KeyY">Shoot</button>
+  <button class="tbtn" data-k="KeyK">Collect</button>
+  <button class="tbtn" data-k="KeyE">Speak</button>
+  <button class="tbtn" data-k="KeyN">Med kit</button>
+  <button class="tbtn" data-k="KeyJ">Group</button>
+  <button class="tbtn" data-k="KeyB">Explore</button>
+  <button class="tbtn" data-k="KeyX">Swim</button>
+  <button class="tbtn" data-k="KeyC">Alive!</button>
+  <button class="tbtn" data-k="Space">Jump</button>
+  <button class="tbtn" data-k="Escape">Menu</button>
+</div>
+<div id="stick"><div id="stickKnob"></div></div>
+<div class="credit">drawn by the designer · built from the sheet</div>
+
+<script src="assets.js"></script>
+<script src="three.min.js"></script>
+<script>
+"use strict";
+/* ============================================================
+   Mountain Side — first-person game built from the hand-drawn
+   design sheet (mountain_side.pdf). Every figure in the game is
+   the actual drawing, cropped from the scan — never redrawn.
+   ============================================================ */
+
+if (!window.THREE) {
+  document.getElementById("loading").innerHTML =
+    "<div style='font-size:24px'>three.min.js is missing next to this file 😢</div>";
+  throw new Error("THREE missing");
+}
+
+/* ---------------- helpers & constants ---------------- */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const dist2 = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
+const TAU = Math.PI * 2;
+
+const WATER_Y = 2.0;
+const EYE = 1.6;
+const WORLD_R = 195;
+const SAVE_KEY = "mountainSideSaveV1";
+
+const HQ = { x: 0, z: 0 };
+const CAMPFIRE = { x: 5, z: 6 };
+const MOUNTAIN = { x: 60, z: -80 };
+const LAKE = { x: -70, z: 40, r: 34 };
+const CAVE = { x: 38, z: -52, r: 16 };
+const CAVE_DOOR = { x: 26.4, z: -38.5 };  // on the HQ side of the dome
+const SUMMIT_GATE = { x: 52, z: -70 };
+const PLANE_SPOT = { x: 14, z: 10 };
+const HOLE_DOWN = { x: 44, z: -57 };       // dark hole inside the cave — explore deeper!
+const FLIGHT_COST = 13;                    // metals to hire the plane, each holiday
+const DAY_LEN = 300, NIGHT_LEN = 140;      // seconds of day / night
+
+const STATE = { TITLE: 0, SELECT: 1, PLAY: 2, FAINTED: 3, DEAD: 4, WIN: 5 };
+let state = STATE.TITLE;
+
+const GOODIES = {
+  sanc:    { name: "Sanc",    type: "Air",    power: "Fly",         strength: 40 },
+  mutian:  { name: "Mutian",  type: "Ground", power: "Quick fire",  strength: 50 },
+  tantion: { name: "Tantion", type: "Grass",  power: "Invisibility",strength: 50 },
+  denzone: { name: "DenZone", type: "Water",  power: "Swim",        strength: 60 },
+};
+
+/* ---------------- deterministic RNG & noise ---------------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hash2(ix, iz) {
+  let h = ix * 374761393 + iz * 668265263 + 1013904223;
+  h = (h ^ (h >>> 13)) >>> 0; h = Math.imul(h, 1274126177) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+const sstep = t => t * t * (3 - 2 * t);
+function vnoise(x, z) {
+  const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz;
+  const a = hash2(ix, iz), b = hash2(ix + 1, iz), c = hash2(ix, iz + 1), d = hash2(ix + 1, iz + 1);
+  return lerp(lerp(a, b, sstep(fx)), lerp(c, d, sstep(fx)), sstep(fz));
+}
+function fbm(x, z) {
+  let v = 0, amp = 1, f = 1, tot = 0;
+  for (let o = 0; o < 4; o++) { v += vnoise(x * f, z * f) * amp; tot += amp; amp *= .5; f *= 2; }
+  return v / tot;
+}
+const gauss = (d, r) => Math.exp(-(d * d) / (r * r));
+
+/* the single source of truth for the ground */
+function terrainHeight(x, z) {
+  const dm = dist2(x, z, MOUNTAIN.x, MOUNTAIN.z);
+  const dl = dist2(x, z, LAKE.x, LAKE.z);
+  const dh = dist2(x, z, HQ.x, HQ.z);
+  const dc = dist2(x, z, CAVE.x, CAVE.z);
+  let h = 3 + fbm(x * .02, z * .02) * 7;            // rolling hills
+  h += gauss(dm, 65) * 46;                          // the mountain
+  h -= gauss(dl, LAKE.r) * 9;                       // lake basin (below water)
+  const hqFlat = gauss(dh, 22);                     // HQ meadow flatten
+  h = lerp(h, 4.2, clamp(hqFlat * 1.4, 0, 1));
+  const caveFlat = gauss(dc, CAVE.r + 6);           // cave shelf flatten
+  h = lerp(h, terrainShelf, clamp(caveFlat * 1.3, 0, 1));
+  return h;
+}
+const terrainShelf = 10.5;
+
+function egyptHeight(x, z) { return 1.5 + fbm(x * .03 + 9, z * .03 + 9) * 2.2; }
+
+const inLake = (x, z) => terrainHeight(x, z) < WATER_Y - 0.15 && dist2(x, z, LAKE.x, LAKE.z) < LAKE.r + 8;
+const inCave = (x, z) => dist2(x, z, CAVE.x, CAVE.z) < CAVE.r - 1;
+
+/* ---------------- sound (Web Audio, synthesized) ---------------- */
+const Sound = {
+  ctx: null, muted: false,
+  ac() {
+    if (!this.ctx) { const A = window.AudioContext || window.webkitAudioContext; if (A) this.ctx = new A(); }
+    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+    return this.ctx;
+  },
+  tone(f0, f1, dur, type, vol) {
+    if (this.muted) return; const c = this.ac(); if (!c) return;
+    const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
+    o.type = type || "square"; o.frequency.setValueAtTime(f0, t);
+    o.frequency.linearRampToValueAtTime(f1 || f0, t + dur);
+    g.gain.setValueAtTime(vol || .08, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + .02);
+  },
+  click()   { this.tone(600, 700, .07, "square", .05); },
+  shoot()   { this.tone(300, 900, .12, "sawtooth", .05); },
+  hit()     { this.tone(220, 90, .15, "square", .07); },
+  hurt()    { this.tone(160, 70, .3, "sawtooth", .09); },
+  collect() { this.tone(700, 1200, .12, "triangle", .08); this.tone(1200, 1600, .1, "triangle", .05); },
+  squeal()  { this.tone(1400, 2200, .12, "square", .06); this.tone(2100, 1500, .14, "square", .05); },
+  yes()     { this.tone(520, 780, .14, "triangle", .09); this.tone(780, 1040, .18, "triangle", .09); },
+  no()      { this.tone(300, 150, .3, "sawtooth", .08); },
+  heal()    { this.tone(400, 900, .3, "sine", .09); },
+  splash()  { this.tone(500, 120, .25, "triangle", .07); },
+  roar()    { this.tone(120, 60, .6, "sawtooth", .12); },
+  plane()   { this.tone(200, 400, .8, "sawtooth", .07); },
+  fanfare() {
+    [523, 659, 784, 1047].forEach((f, i) =>
+      setTimeout(() => this.tone(f, f, .22, "triangle", .1), i * 140));
+  },
+};
+
+/* ---------------- input ---------------- */
+const keys = {}, pressed = {};
+addEventListener("keydown", e => {
+  if (e.repeat) return;
+  keys[e.code] = true; pressed[e.code] = true;
+  if (["Space", "ArrowUp", "ArrowDown"].includes(e.code)) e.preventDefault();
+});
+addEventListener("keyup", e => { keys[e.code] = false; });
+function consume(code) { const v = pressed[code]; pressed[code] = false; return v; }
+
+let yaw = 0, pitch = -0.05;
+const canvas = $("gl");
+canvas.addEventListener("click", () => {
+  if (state === STATE.PLAY && !isTouch && document.pointerLockElement !== canvas)
+    canvas.requestPointerLock();
+});
+document.addEventListener("mousemove", e => {
+  if (document.pointerLockElement === canvas && state === STATE.PLAY) {
+    yaw -= e.movementX * 0.0024;
+    pitch = clamp(pitch - e.movementY * 0.0024, -1.45, 1.45);
+  }
+});
+document.addEventListener("mousedown", () => {
+  if (state === STATE.PLAY && document.pointerLockElement === canvas) pressed["KeyY"] = true;
+});
+document.addEventListener("pointerlockchange", () => {
+  const uiOpen = dialogOpen || !$("groupMenu").classList.contains("hidden");
+  if (document.pointerLockElement !== canvas && state === STATE.PLAY && !isTouch && !uiOpen) openTitle();
+});
+
+/* touch controls */
+const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+if (isTouch) document.body.classList.add("touch");
+let stickId = null, stickOx = 0, stickOy = 0, stickVx = 0, stickVy = 0, lookId = null, lookX = 0, lookY = 0;
+canvas.addEventListener("touchstart", e => {
+  for (const t of e.changedTouches) {
+    if (t.clientX < innerWidth / 2 && stickId === null) {
+      stickId = t.identifier; stickOx = t.clientX; stickOy = t.clientY; stickVx = stickVy = 0;
+      const s = $("stick"); s.style.display = "block";
+      s.style.left = (stickOx - 55) + "px"; s.style.top = (stickOy - 55) + "px";
+    } else if (lookId === null) { lookId = t.identifier; lookX = t.clientX; lookY = t.clientY; }
+  }
+  Sound.ac(); e.preventDefault();
+}, { passive: false });
+canvas.addEventListener("touchmove", e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === stickId) {
+      stickVx = clamp((t.clientX - stickOx) / 40, -1, 1);
+      stickVy = clamp((t.clientY - stickOy) / 40, -1, 1);
+      $("stickKnob").style.left = (33 + stickVx * 30) + "px";
+      $("stickKnob").style.top = (33 + stickVy * 30) + "px";
+    } else if (t.identifier === lookId) {
+      yaw -= (t.clientX - lookX) * .006;
+      pitch = clamp(pitch - (t.clientY - lookY) * .006, -1.45, 1.45);
+      lookX = t.clientX; lookY = t.clientY;
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+const endTouch = e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === stickId) { stickId = null; stickVx = stickVy = 0; $("stick").style.display = "none"; }
+    if (t.identifier === lookId) lookId = null;
+  }
+};
+canvas.addEventListener("touchend", endTouch); canvas.addEventListener("touchcancel", endTouch);
+document.querySelectorAll(".tbtn").forEach(b => {
+  b.addEventListener("touchstart", e => { pressed[b.dataset.k] = true; keys[b.dataset.k] = true; e.preventDefault(); }, { passive: false });
+  b.addEventListener("touchend", e => { keys[b.dataset.k] = false; e.preventDefault(); }, { passive: false });
+});
+
+/* ---------------- textures from the scanned drawings ---------------- */
+const TEX = {}, IMG = {};
+function loadAssets(done) {
+  const names = Object.keys(ASSETS); let n = 0;
+  names.forEach(name => {
+    const img = new Image();
+    img.onload = () => {
+      IMG[name] = img;
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
+      t.needsUpdate = true; TEX[name] = t;
+      if (++n === names.length) done();
+      $("loadFill").style.width = Math.round(n / names.length * 100) + "%";
+    };
+    img.src = ASSETS[name];
+  });
+}
+
+/* ---------------- three.js scene ---------------- */
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 600);
+camera.rotation.order = "YXZ";
+function resize() {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+function makeTerrain(size, seg, heightFn, colorFn) {
+  const geo = new THREE.PlaneGeometry(size, size, seg, seg);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  const cols = new Float32Array(pos.count * 3);
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    const h = heightFn(x, z);
+    pos.setY(i, h);
+    colorFn(x, z, h, c);
+    cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+}
+
+const C_GRASS = new THREE.Color(0x7cc25a), C_MEADOW = new THREE.Color(0x92d465),
+      C_ORANGE = new THREE.Color(0xe8853a), C_ORANGE2 = new THREE.Color(0xd96f28),
+      C_SAND = new THREE.Color(0xe6d29a), C_LAKEBED = new THREE.Color(0x35418f),
+      C_GREY = new THREE.Color(0x8f8c86);
+
+function mountainColors(x, z, h, out) {
+  out.copy(C_GRASS);
+  out.lerp(C_MEADOW, clamp(gauss(dist2(x, z, HQ.x, HQ.z), 24), 0, 1));
+  const oro = clamp((h - 9) / 16, 0, 1);
+  out.lerp(hash2(Math.round(x * 3), Math.round(z * 3)) > .5 ? C_ORANGE : C_ORANGE2, oro);
+  out.lerp(C_GREY, clamp(gauss(dist2(x, z, CAVE.x, CAVE.z), CAVE.r + 4), 0, 1) * .9);
+  if (dist2(x, z, LAKE.x, LAKE.z) < LAKE.r + 9) {
+    if (h < WATER_Y + .4) out.copy(C_LAKEBED);
+    else if (h < WATER_Y + 2.4) out.lerp(C_SAND, .8);
+  }
+}
+
+/* --- the mountain world --- */
+const world = new THREE.Scene();
+world.background = new THREE.Color(0x9fd8ef);
+world.fog = new THREE.Fog(0x9fd8ef, 60, 240);
+world.add(new THREE.AmbientLight(0xffffff, 1.15));
+const sunLight = new THREE.DirectionalLight(0xfff2cc, 1.6);
+sunLight.position.set(80, 120, 40); world.add(sunLight);
+world.add(makeTerrain(2 * WORLD_R + 40, 150, terrainHeight, mountainColors));
+
+/* water */
+const waterGeo = new THREE.PlaneGeometry(110, 110, 20, 20);
+waterGeo.rotateX(-Math.PI / 2);
+const water = new THREE.Mesh(waterGeo,
+  new THREE.MeshLambertMaterial({ color: 0x2b46c8, transparent: true, opacity: .78 }));
+water.position.set(LAKE.x, WATER_Y, LAKE.z);
+world.add(water);
+
+/* sun sprite */
+const sun = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xfff1a0, fog: false }));
+sun.position.set(150, 130, -180); sun.scale.set(30, 30, 1); world.add(sun);
+
+/* cave dome (dark inside; gap = doorway faces HQ) */
+const domeGeo = new THREE.SphereGeometry(CAVE.r, 28, 14, Math.PI * .62, Math.PI * 1.76, 0, Math.PI * .52);
+const dome = new THREE.Mesh(domeGeo, new THREE.MeshLambertMaterial({ color: 0x4a4742, side: THREE.DoubleSide }));
+dome.position.set(CAVE.x, terrainShelf - .4, CAVE.z);
+world.add(dome);
+const caveLight = new THREE.PointLight(0xff9a3c, 18, 30);
+caveLight.position.set(CAVE.x, terrainShelf + 4, CAVE.z); world.add(caveLight);
+
+/* campfire at HQ */
+const fire = new THREE.Group();
+const log1 = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, 1.6), new THREE.MeshLambertMaterial({ color: 0x7a4a22 }));
+log1.rotation.z = Math.PI / 2; fire.add(log1);
+const log2 = log1.clone(); log2.rotation.y = Math.PI / 2; fire.add(log2);
+const flame = new THREE.Mesh(new THREE.ConeGeometry(.4, 1.1, 8), new THREE.MeshBasicMaterial({ color: 0xff8c1a }));
+flame.position.y = .7; fire.add(flame);
+const fireLight = new THREE.PointLight(0xff9a3c, 8, 14); fireLight.position.y = 1.4; fire.add(fireLight);
+fire.position.set(CAMPFIRE.x, terrainHeight(CAMPFIRE.x, CAMPFIRE.z), CAMPFIRE.z);
+world.add(fire);
+
+/* scatter decorative rocks */
+{
+  const rockMat = new THREE.MeshLambertMaterial({ color: 0x9b978f });
+  const rng = mulberry32(777);
+  for (let i = 0; i < 26; i++) {
+    const x = (rng() - .5) * 320, z = (rng() - .5) * 320;
+    if (inLake(x, z) || dist2(x, z, HQ.x, HQ.z) < 16 || inCave(x, z)) continue;
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(.6 + rng() * 1.4), rockMat);
+    r.position.set(x, terrainHeight(x, z) + .3, z);
+    r.rotation.set(rng() * 3, rng() * 3, rng() * 3);
+    world.add(r);
+  }
+}
+
+/* ---- a LIVING mountain: forests, flowers, critters, sky & weather ---- */
+const butterflies = [], clouds = [];
+const BERRY_SPOTS = [], PEARL_SPOTS = [];
+let stars, moon, ambient;
+{
+  world.children.forEach(c => { if (c.isAmbientLight) ambient = c; });
+  const rng = mulberry32(4242);
+  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x7a4a22 });
+  const pineMats = [new THREE.MeshLambertMaterial({ color: 0x2e8b3a }),
+                    new THREE.MeshLambertMaterial({ color: 0x4aa64f })];
+  const bushMat = new THREE.MeshLambertMaterial({ color: 0x59b04b });
+  const clearOf = (x, z) =>
+    !inLake(x, z) && dist2(x, z, HQ.x, HQ.z) > 12 && dist2(x, z, CAVE.x, CAVE.z) > CAVE.r + 4 &&
+    dist2(x, z, PLANE_SPOT.x, PLANE_SPOT.z) > 6 && terrainHeight(x, z) < 26;
+  /* pine forests */
+  for (let i = 0; i < 70; i++) {
+    const x = (rng() - .5) * 350, z = (rng() - .5) * 350;
+    if (!clearOf(x, z)) continue;
+    const s = 1.6 + rng() * 2.2, y = terrainHeight(x, z);
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(.14 * s, .2 * s, s), trunkMat);
+    tr.position.set(x, y + s / 2, z); world.add(tr);
+    const top = new THREE.Mesh(new THREE.ConeGeometry(.85 * s, 1.9 * s, 7), pineMats[i % 2]);
+    top.position.set(x, y + s * 1.8, z); world.add(top);
+  }
+  /* round bushes + berry bushes (berries respawn as pickups) */
+  for (let i = 0; i < 34; i++) {
+    const x = (rng() - .5) * 300, z = (rng() - .5) * 300;
+    if (!clearOf(x, z)) continue;
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.7 + rng() * .8, 8, 6), bushMat);
+    b.position.set(x, terrainHeight(x, z) + .4, z); b.scale.y = .72; world.add(b);
+    if (BERRY_SPOTS.length < 12 && i % 2 === 0) BERRY_SPOTS.push({ x, z });
+  }
+  /* flowers on the meadow */
+  const petalCols = [0xff7bc6, 0xffd23f, 0xff9a3c, 0xb28cff, 0xff6b6b, 0xfffaf0];
+  for (let i = 0; i < 90; i++) {
+    const a = rng() * TAU, r = 6 + rng() * 55;
+    const x = HQ.x + Math.cos(a) * r, z = HQ.z + Math.sin(a) * r;
+    if (inLake(x, z) || dist2(x, z, CAVE.x, CAVE.z) < CAVE.r + 3) continue;
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, .3), bushMat);
+    st.position.set(x, terrainHeight(x, z) + .15, z); world.add(st);
+    const f = new THREE.Mesh(new THREE.SphereGeometry(.13, 6, 5),
+      new THREE.MeshBasicMaterial({ color: petalCols[i % petalCols.length] }));
+    f.position.set(x, terrainHeight(x, z) + .34, z); world.add(f);
+  }
+  /* mushrooms near the cave */
+  for (let i = 0; i < 10; i++) {
+    const a = rng() * TAU, r = CAVE.r + 4 + rng() * 8;
+    const x = CAVE.x + Math.cos(a) * r, z = CAVE.z + Math.sin(a) * r;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(.09, .13, .4),
+      new THREE.MeshLambertMaterial({ color: 0xe8e0d0 }));
+    stem.position.set(x, terrainHeight(x, z) + .2, z); world.add(stem);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(.27, 8, 6),
+      new THREE.MeshLambertMaterial({ color: 0xd4453a }));
+    cap.scale.y = .55; cap.position.set(x, terrainHeight(x, z) + .42, z); world.add(cap);
+  }
+  /* butterflies that flutter around the meadow */
+  const bcols = [0xffd23f, 0xff7bc6, 0x9fe8ff, 0xb28cff];
+  for (let i = 0; i < 10; i++) {
+    const g = new THREE.Group();
+    const wmat = new THREE.MeshBasicMaterial({ color: bcols[i % 4], side: THREE.DoubleSide });
+    const w1 = new THREE.Mesh(new THREE.CircleGeometry(.16, 5), wmat); w1.position.x = -.12;
+    const w2 = new THREE.Mesh(new THREE.CircleGeometry(.16, 5), wmat); w2.position.x = .12;
+    g.add(w1); g.add(w2);
+    g.userData = { w1, w2, a: rng() * TAU, r: 4 + rng() * 26, h: 1 + rng() * 2, sp: .3 + rng() * .5, ph: rng() * TAU };
+    world.add(g); butterflies.push(g);
+  }
+  /* drifting clouds */
+  const cmat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  for (let i = 0; i < 7; i++) {
+    const g = new THREE.Group();
+    for (let p = 0; p < 4; p++) {
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(4 + rng() * 4, 8, 6), cmat);
+      puff.position.set(p * 5 - 8 + rng() * 3, rng() * 2, rng() * 4 - 2); g.add(puff);
+    }
+    g.position.set((rng() - .5) * 380, 72 + rng() * 25, (rng() - .5) * 380);
+    world.add(g); clouds.push(g);
+  }
+  /* stars & moon, visible at night */
+  const sg = new THREE.BufferGeometry();
+  const spos = new Float32Array(300 * 3);
+  for (let i = 0; i < 300; i++) {
+    const a = rng() * TAU, e = rng() * Math.PI * .45, r = 420;
+    spos[i * 3] = Math.cos(a) * Math.cos(e) * r;
+    spos[i * 3 + 1] = 40 + Math.sin(e) * r * .55;
+    spos[i * 3 + 2] = Math.sin(a) * Math.cos(e) * r;
+  }
+  sg.setAttribute("position", new THREE.BufferAttribute(spos, 3));
+  stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 1.7, transparent: true, opacity: 0, fog: false }));
+  world.add(stars);
+  moon = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xe8ecff, transparent: true, opacity: 0, fog: false }));
+  moon.scale.set(16, 16, 1); moon.position.set(-150, 125, 160); world.add(moon);
+  /* a little wooden dock at the lake */
+  const dockMat = new THREE.MeshLambertMaterial({ color: 0x9a6a35 });
+  const dock = new THREE.Group();
+  for (let p = 0; p < 4; p++) {
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(2.2, .18, 1.4), dockMat);
+    plank.position.set(0, 0, -p * 1.5); dock.add(plank);
+  }
+  [[-.9, -4.4], [.9, -4.4]].forEach(([px, pz]) => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, 2.6), dockMat);
+    post.position.set(px, -1, pz); dock.add(post);
+  });
+  dock.position.set(LAKE.x + LAKE.r * .86, WATER_Y + .35, LAKE.z + 4);
+  dock.rotation.y = Math.PI / 2 + .35;
+  world.add(dock);
+  /* pearl spots on the lake bottom (collect while diving!) */
+  for (let i = 0; i < 40 && PEARL_SPOTS.length < 8; i++) {
+    const a = rng() * TAU, r = rng() * (LAKE.r * .6);
+    const x = LAKE.x + Math.cos(a) * r, z = LAKE.z + Math.sin(a) * r;
+    if (terrainHeight(x, z) < WATER_Y - 3) PEARL_SPOTS.push({ x, z });
+  }
+  /* crystals inside the cave + the hole that leads DEEPER */
+  const ccols = [0xff7bc6, 0x9fe8ff, 0xb28cff, 0x6fe26f];
+  for (let i = 0; i < 4; i++) {
+    const a = i * 1.5, r = CAVE.r * .55;
+    const x = CAVE.x + Math.cos(a) * r, z = CAVE.z + Math.sin(a) * r;
+    const cr = new THREE.Mesh(new THREE.OctahedronGeometry(.6), new THREE.MeshBasicMaterial({ color: ccols[i] }));
+    cr.position.set(x, terrainHeight(x, z) + .6, z); world.add(cr);
+  }
+  const holeDisc = new THREE.Mesh(new THREE.CircleGeometry(2.2, 20), new THREE.MeshBasicMaterial({ color: 0x050508 }));
+  holeDisc.rotation.x = -Math.PI / 2;
+  holeDisc.position.set(HOLE_DOWN.x, terrainHeight(HOLE_DOWN.x, HOLE_DOWN.z) + .06, HOLE_DOWN.z);
+  world.add(holeDisc);
+  const holeRing = new THREE.Mesh(new THREE.TorusGeometry(2.3, .14, 6, 22), new THREE.MeshBasicMaterial({ color: 0xff7bc6 }));
+  holeRing.rotation.x = -Math.PI / 2;
+  holeRing.position.copy(holeDisc.position); holeRing.position.y += .08;
+  world.add(holeRing);
+}
+
+/* rain + rainbow */
+const rainBase = new Float32Array(400 * 3);
+{
+  const rng = mulberry32(99);
+  for (let i = 0; i < 400; i++) {
+    rainBase[i * 3] = (rng() - .5) * 60; rainBase[i * 3 + 1] = rng() * 36; rainBase[i * 3 + 2] = (rng() - .5) * 60;
+  }
+}
+const rainGeo = new THREE.BufferGeometry();
+rainGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(400 * 3), 3));
+const rain = new THREE.Points(rainGeo, new THREE.PointsMaterial({ color: 0x9fc8ff, size: .3, transparent: true, opacity: .65 }));
+rain.visible = false; world.add(rain);
+const rainbow = new THREE.Group();
+[0xff5a5a, 0xff9a3c, 0xffd23f, 0x6fe26f, 0x5aa0ff, 0xb28cff].forEach((c, i) => {
+  const t = new THREE.Mesh(new THREE.TorusGeometry(26 - i * 1.1, .5, 6, 40, Math.PI),
+    new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .5, fog: false }));
+  rainbow.add(t);
+});
+rainbow.position.set(LAKE.x, WATER_Y, LAKE.z); rainbow.visible = false; world.add(rainbow);
+
+/* --- Egypt world --- */
+const egypt = new THREE.Scene();
+egypt.background = new THREE.Color(0xf7dc9a);
+egypt.fog = new THREE.Fog(0xf7dc9a, 50, 200);
+egypt.add(new THREE.AmbientLight(0xffffff, 1.3));
+const egyptSun = new THREE.DirectionalLight(0xfff2cc, 1.7);
+egyptSun.position.set(-60, 100, 30); egypt.add(egyptSun);
+egypt.add(makeTerrain(320, 80, egyptHeight,
+  (x, z, h, out) => { out.set(0xeccf7f); out.lerp(new THREE.Color(0xdfb95f), vnoise(x * .1, z * .1)); }));
+const PYRAMID = { x: 0, z: -70 };
+const pyramid = new THREE.Mesh(new THREE.ConeGeometry(34, 30, 4),
+  new THREE.MeshLambertMaterial({ color: 0xf3d426 }));
+pyramid.position.set(PYRAMID.x, egyptHeight(PYRAMID.x, PYRAMID.z) + 14.6, PYRAMID.z);
+pyramid.rotation.y = Math.PI / 4;
+egypt.add(pyramid);
+const egyptSunSpr = sun.clone();
+egyptSunSpr.material = egyptSunSpr.material.clone();   // Egypt is always sunny
+egyptSunSpr.position.set(-120, 110, -150); egypt.add(egyptSunSpr);
+sun.material.transparent = true;
+
+/* --- the endless cave depths ("To be explored…") --- */
+let depthScene = null, depthFoes = [], depth = 0, depthCleared = false, depthPlayerLight = null;
+const DEPTH_UP = { x: 0, z: 18 }, DEPTH_DOWN = { x: 0, z: -22 };
+function depthGroundFn(x, z) {
+  const d = Math.hypot(x, z);
+  return 2 + fbm(x * .06 + depth * 7.3, z * .06 - depth * 2.1) * 2.5 + Math.max(0, d - 26) * 1.6;
+}
+function mkHoleMarker(sc, x, z, ringCol, fn) {
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(2, 18), new THREE.MeshBasicMaterial({ color: 0x050508 }));
+  disc.rotation.x = -Math.PI / 2; disc.position.set(x, fn(x, z) + .06, z); sc.add(disc);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.1, .13, 6, 22), new THREE.MeshBasicMaterial({ color: ringCol }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(x, fn(x, z) + .14, z); sc.add(ring);
+}
+function buildDepth() {
+  const old = depthScene;
+  if (old) pickups = pickups.filter(p => p.sc !== old);
+  depthScene = new THREE.Scene();
+  const dark = new THREE.Color().setHSL(.62 + (depth % 5) * .05, .45, .05 + .015 * (depth % 3));
+  depthScene.background = dark;
+  depthScene.fog = new THREE.Fog(dark, 10, Math.max(34, 70 - depth * 2));
+  depthScene.add(new THREE.AmbientLight(0xffffff, .85));
+  depthPlayerLight = new THREE.PointLight(0xffc27a, 14, 22);   // your trusty torch-glow
+  depthScene.add(depthPlayerLight);
+  depthScene.add(makeTerrain(90, 60, depthGroundFn, (x, z, h, out) => {
+    out.set(0x6a6660); out.lerp(new THREE.Color(0x4a4742), vnoise(x * .2, z * .2));
+    if (h > 6) out.lerp(new THREE.Color(0x35332e), .8);
+  }));
+  const rng = mulberry32(1000 + depth * 13);
+  const ccols = [0xff7bc6, 0x9fe8ff, 0xb28cff, 0x6fe26f];
+  for (let i = 0; i < 7; i++) {
+    const a = rng() * TAU, r = 5 + rng() * 20;
+    const x = Math.cos(a) * r, z = Math.sin(a) * r, c = ccols[i % 4];
+    const cr = new THREE.Mesh(new THREE.OctahedronGeometry(.5 + rng() * .8), new THREE.MeshBasicMaterial({ color: c }));
+    cr.position.set(x, depthGroundFn(x, z) + .6, z); depthScene.add(cr);
+    if (i < 3) { const l = new THREE.PointLight(c, 7, 16); l.position.set(x, depthGroundFn(x, z) + 2.5, z); depthScene.add(l); }
+  }
+  mkHoleMarker(depthScene, DEPTH_UP.x, DEPTH_UP.z, 0xffd23f, depthGroundFn);
+  mkHoleMarker(depthScene, DEPTH_DOWN.x, DEPTH_DOWN.z, 0xff5a5a, depthGroundFn);
+  /* deeper = more and tougher Followers */
+  depthFoes = []; depthCleared = false;
+  const n = 3 + Math.min(9, depth);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU, r = 11 + (i % 3) * 6;
+    depthFoes.push({ kind: "follower", x: Math.cos(a) * r, z: Math.sin(a) * r,
+      hp: 70 + depth * 8, maxHp: 70 + depth * 8, wanderA: i,
+      mesh: billboard("follower", 2.0, depthScene) });
+  }
+  /* treasure of the depths */
+  for (let i = 0; i < 2 + Math.min(5, 1 + (depth >> 1)); i++) {
+    const a = rng() * TAU, r = 7 + rng() * 17;
+    addPickup("metal", Math.cos(a) * r, Math.sin(a) * r, depthScene);
+  }
+  if (depth % 3 === 0) addPickup("medkit", 4, -7, depthScene);
+  if (depth % 4 === 0) addPickup("snack", -5, 6, depthScene);
+}
+
+let scene = world;
+let groundFn = terrainHeight;
+let zone = "mountain";       // "mountain" | "egypt" | "depth"
+
+/* ---------------- billboards ---------------- */
+function billboard(texName, height, sc) {
+  const img = IMG[texName];
+  const w = height * (img.width / img.height);
+  const geo = new THREE.PlaneGeometry(w, height);
+  const mat = new THREE.MeshBasicMaterial({
+    map: TEX[texName], transparent: true, alphaTest: .25, side: THREE.DoubleSide,
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.userData.h = height;
+  (sc || scene).add(m);
+  return m;
+}
+function faceCamera(m) { m.rotation.y = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z); }
+function setOnGround(m, x, z, fn) {
+  m.position.set(x, (fn || groundFn)(x, z) + m.userData.h / 2 + .05, z);
+}
+function sparkle(sc) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xfff8b0, transparent: true, opacity: .9 }));
+  s.scale.set(.5, .5, 1); (sc || scene).add(s); return s;
+}
+
+/* ---------------- game data ---------------- */
+let player, mates, villains, mummies, pickups, botas, riddlers, toppleRocks, planeEnt, treasureEnt;
+let inv, hqLevel, groupMode, bossDefeated, egyptUnlocked, inEgypt, won, playTime;
+let sessionActive = false;
+let promptTxt = "", toastTimer = 0, compassTimer = 0, autosaveT = 0, jinkyCd = 0;
+let strandedT = 0, faintCarryT = 0, vignetteT = 0, camWobble = 0;
+/* endless-adventure state */
+let adventureLevel = 1, xp = 0, explorerLevel = 1, stats = {}, badges = [], tasks = [];
+let raidT = 220, raidActive = false, raidStole = false;
+let dayNightK = 0, wasNight = false, rainT = 0, rainbowT = 0, nextRainT = 240, summitCd = 0;
+
+function currentFoes() { return zone === "egypt" ? mummies : zone === "depth" ? depthFoes : villains; }
+function hpBonus() { return Math.min(40, (explorerLevel - 1) * 2); }
+
+/* ---- pickups (many respawn — the world never runs empty) ---- */
+let pid = 0;
+const RESPAWN = { wood: 150, snack: 160, medkit: 260, berries: 90, pearl: 220, metal: 0 };
+function heightFor(sc) { return sc === egypt ? egyptHeight : (depthScene && sc === depthScene) ? depthGroundFn : terrainHeight; }
+function addPickup(type, x, z, sc) {
+  sc = sc || world;
+  const hf = heightFor(sc);
+  const p = { type, id: "p" + (pid++), x, z, got: false, sc, respawn: RESPAWN[type] || 0, respawnT: 0 };
+  if (type === "wood") {
+    p.mesh = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 1.4), new THREE.MeshLambertMaterial({ color: 0x8a5a2a }));
+    p.mesh.rotation.z = 1.2; p.mesh.position.set(x, hf(x, z) + .3, z); sc.add(p.mesh);
+  } else if (type === "metal") {
+    p.mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(.42), new THREE.MeshLambertMaterial({ color: 0xc9ccd4, emissive: 0x222933 }));
+    p.mesh.position.set(x, hf(x, z) + .5, z); sc.add(p.mesh);
+  } else if (type === "berries") {
+    p.mesh = new THREE.Group();
+    for (let b = 0; b < 4; b++) {
+      const br = new THREE.Mesh(new THREE.SphereGeometry(.12, 6, 5), new THREE.MeshBasicMaterial({ color: 0xe0342a }));
+      br.position.set(Math.cos(b * 1.9) * .4, .78 + (b % 2) * .22, Math.sin(b * 1.9) * .4);
+      p.mesh.add(br);
+    }
+    p.mesh.position.set(x, hf(x, z), z); sc.add(p.mesh);
+  } else if (type === "pearl") {
+    p.mesh = new THREE.Mesh(new THREE.SphereGeometry(.3, 10, 8),
+      new THREE.MeshLambertMaterial({ color: 0xf6f2ea, emissive: 0x66605a }));
+    p.mesh.position.set(x, hf(x, z) + .4, z); sc.add(p.mesh);
+  } else {
+    p.mesh = billboard(type === "medkit" ? "medkit" : "snack", .8, sc);
+    setOnGround(p.mesh, x, z, hf);
+  }
+  p.spark = sparkle(sc); p.spark.position.set(x, p.mesh.position.y + 1.3, z);
+  pickups.push(p);
+  return p;
+}
+function respawnPickup(p) {
+  p.got = false;
+  if (p.mesh) p.mesh.visible = true;
+  if (p.spark) p.spark.visible = true;
+}
+
+/* ---- explorer XP ---- */
+function gainXp(n) {
+  xp += n;
+  const lvl = Math.floor(Math.sqrt(xp / 60)) + 1;
+  if (lvl > explorerLevel) {
+    explorerLevel = lvl;
+    player.maxHp = GOODIES[player.id].strength + hpBonus();
+    player.hp = player.maxHp;
+    mates.forEach(m => { m.maxHp = GOODIES[m.id].strength + hpBonus(); if (m.state === "ok") m.hp = m.maxHp; });
+    Sound.fanfare();
+    toast(`⭐ Explorer Level ${explorerLevel}! The whole team feels stronger! (+HP)`, 6);
+  }
+}
+
+/* ---- badges ---- */
+const BADGES = [
+  ["f1", "First Follower beaten", s => s.followers >= 1],
+  ["f25", "25 Followers beaten", s => s.followers >= 25],
+  ["f100", "100 Followers beaten", s => s.followers >= 100],
+  ["r5", "5 riddles solved", s => s.riddles >= 5],
+  ["r15", "15 riddles solved", s => s.riddles >= 15],
+  ["q5", "5 Bota favours done", s => s.favours >= 5],
+  ["h1", "First holiday to Egypt", s => s.holidays >= 1],
+  ["h3", "3 holidays", s => s.holidays >= 3],
+  ["h10", "10 holidays!!", s => s.holidays >= 10],
+  ["d3", "Cave Depth 3 reached", s => s.depth >= 3],
+  ["d8", "Cave Depth 8 reached", s => s.depth >= 8],
+  ["p10", "10 pearls collected", s => s.pearls >= 10],
+  ["raid5", "5 HQ raids defended", s => s.raids >= 5],
+  ["b3", "Boss beaten 3 times", s => s.bosses >= 3],
+  ["lvl10", "Explorer Level 10", () => explorerLevel >= 10],
+  ["m100", "100 metals collected", s => s.metals >= 100],
+];
+function addStat(k, n) {
+  stats[k] = (stats[k] || 0) + (n || 1);
+  BADGES.forEach(([id, name, test]) => {
+    if (!badges.includes(id) && test(stats)) {
+      badges.push(id); Sound.fanfare();
+      toast(`🏅 NEW BADGE: ${name}!`, 6);
+    }
+  });
+}
+
+/* ---- endless rotating tasks ---- */
+const TASK_KINDS = [
+  { id: "followers", txt: n => `Beat ${n} Followers`, n: () => 3 + adventureLevel },
+  { id: "wood", txt: n => `Collect ${n} wood`, n: () => 4 + adventureLevel },
+  { id: "metal", txt: n => `Collect ${n} metal`, n: () => 2 + adventureLevel },
+  { id: "snack", txt: n => `Gather ${n} snacks or berries`, n: () => 3 },
+  { id: "riddle", txt: n => `Solve ${n > 1 ? n + " riddles" : "a riddle"}`, n: () => 1 },
+  { id: "favour", txt: n => `Do a Bota-Block favour`, n: () => 1 },
+  { id: "summit", txt: n => `Climb to the summit`, n: () => 1 },
+  { id: "pearl", txt: n => `Dive for ${n} pearls`, n: () => 2 },
+  { id: "depth", txt: n => `Explore ${n} cave depths`, n: () => 2 },
+];
+function newTask() {
+  for (let t = 0; t < 12; t++) {
+    const k = TASK_KINDS[Math.floor(Math.random() * TASK_KINDS.length)];
+    if (tasks.some(x => x && x.id === k.id)) continue;
+    const n = k.n();
+    return { id: k.id, txt: k.txt(n), need: n, have: 0 };
+  }
+  return { id: "wood", txt: "Collect 4 wood", need: 4, have: 0 };
+}
+function taskEvent(ev, n) {
+  if (!tasks || !tasks.length) return;
+  tasks.forEach((tk, i) => {
+    if (tk.id !== ev) return;
+    tk.have += (n || 1);
+    if (tk.have >= tk.need) {
+      Sound.yes(); gainXp(25);
+      const r = ["metal", "cookies", "medkit", "juice"][Math.floor(Math.random() * 4)];
+      if (r === "metal") { inv.metal += 2; addStat("metals", 2); checkPlane(); }
+      else if (r === "cookies") inv.cookies += 4;
+      else if (r === "juice") inv.juice += 2;
+      else { inv.syringes++; inv.plasters++; }
+      toast(`✅ Task done: ${tk.txt}! Reward + ⭐XP`, 5);
+      tasks[i] = newTask();
+    }
+  });
+}
+
+const RIDDLES = [
+  { q: "What has to be broken before you can use it?", a: ["An egg", "A stick", "A window"], ok: 0 },
+  { q: "What has hands but cannot clap?", a: ["A monkey", "A clock", "A glove"], ok: 1 },
+  { q: "What gets wetter the more it dries?", a: ["A fish", "A cloud", "A towel"], ok: 2 },
+  { q: "What goes up but never comes down?", a: ["Your age", "A ball", "A bird"], ok: 0 },
+  { q: "What has a bed but never sleeps?", a: ["A bear", "A river", "A house"], ok: 1 },
+  { q: "What can you catch but never throw?", a: ["A ball", "A fish", "A cold"], ok: 2 },
+  { q: "What building has the most stories?", a: ["The library", "A castle", "A tower"], ok: 0 },
+  { q: "What has one eye but cannot see?", a: ["A storm", "A needle", "A potato"], ok: 1 },
+  { q: "What kind of room has no doors or windows?", a: ["A bathroom", "A classroom", "A mushroom"], ok: 2 },
+  { q: "What has teeth but cannot bite?", a: ["A comb", "A puppy", "A zip"], ok: 0 },
+  { q: "What is full of holes but still holds water?", a: ["A bucket", "A sponge", "A net"], ok: 1 },
+  { q: "What has legs but cannot walk?", a: ["A snake", "A fish", "A table"], ok: 2 },
+  { q: "The more you take, the more you leave behind. What are they?", a: ["Footprints", "Cookies", "Coins"], ok: 0 },
+  { q: "What can fly without wings?", a: ["A fish", "Time", "A rock"], ok: 1 },
+  { q: "What has a neck but no head?", a: ["A shirt", "A giraffe", "A bottle"], ok: 2 },
+  { q: "What gets bigger the more you take away from it?", a: ["A hole", "A cake", "A balloon"], ok: 0 },
+  { q: "What has ears but cannot hear?", a: ["A bat", "Corn", "A mouse"], ok: 1 },
+  { q: "What kind of band never plays music?", a: ["A loud band", "A rock band", "A rubber band"], ok: 2 },
+  { q: "Where does today come before yesterday?", a: ["The dictionary", "A calendar", "Space"], ok: 0 },
+  { q: "What invention lets you look right through a wall?", a: ["A drill", "A window", "Glasses"], ok: 1 },
+  { q: "What goes up when the rain comes down?", a: ["A river", "A frog", "An umbrella"], ok: 2 },
+  { q: "What has words but never speaks?", a: ["A book", "A parrot", "A radio"], ok: 0 },
+  { q: "I'm tall when I'm young and short when I'm old. What am I?", a: ["A tree", "A candle", "A mountain"], ok: 1 },
+  { q: "What can you keep after giving it to someone?", a: ["A cookie", "A hug", "Your word"], ok: 2 },
+];
+const JOKES = [
+  "Why did the mountain never get lost? It had lots of peaks to look from!",
+  "What do you call a funny mountain? Hill-arious!",
+  "I'm a Bota-Block. Sometimes we help… sometimes we just say hello. Hello!",
+  "Why did the cookie go to the doctor? It was feeling crummy!",
+  "What's a mummy's favourite music? WRAP music!",
+  "Why don't mountains get cold? They wear snow caps!",
+  "What did the lake say to the mountain? Nothing — it just waved!",
+  "Knock knock! Who's there? Bota. Bota who? 'Bota time you came to say hello!",
+];
+
+function newGame(chosen) {
+  /* clear old meshes */
+  [villains, mates, pickups, botas, riddlers, mummies].forEach(list => {
+    if (list) list.forEach(e => { if (e.mesh) e.mesh.parent && e.mesh.parent.remove(e.mesh); if (e.spark) e.spark.parent && e.spark.parent.remove(e.spark); });
+  });
+  if (planeEnt && planeEnt.mesh.parent) planeEnt.mesh.parent.remove(planeEnt.mesh);
+  if (treasureEnt && treasureEnt.spark.parent) treasureEnt.spark.parent.remove(treasureEnt.spark);
+  if (toppleRocks) toppleRocks.forEach(r => r.mesh.parent && r.mesh.parent.remove(r.mesh));
+  Object.values(questMeshes).forEach(m => m.parent && m.parent.remove(m)); questMeshes = {};
+  arrows.forEach(a => a.mesh.parent && a.mesh.parent.remove(a.mesh)); arrows = [];
+
+  const g = GOODIES[chosen];
+  player = {
+    id: chosen, x: HQ.x - 3, z: HQ.z + 8, y: 0, vy: 0,
+    hp: g.strength, maxHp: g.strength, mode: "walk", shootCd: 0,
+    stillT: 0, invisible: false, carrying: null, invulnT: 0, rockGraceT: 0, stuckRock: null,
+  };
+  yaw = Math.PI; pitch = -0.05;
+  inv = { juice: 5, cookies: 15, wood: 0, metal: 0, pearls: 0, syringes: 1, plasters: 2, slingshot: false, sword: false, shield: false, torch: false };
+  hqLevel = 0; groupMode = "stick"; bossDefeated = false; egyptUnlocked = false;
+  inEgypt = false; won = false; playTime = 0;
+  adventureLevel = 1; xp = 0; explorerLevel = 1; stats = {}; badges = []; tasks = [];
+  tasks = [newTask()]; tasks.push(newTask()); tasks.push(newTask());
+  raidT = 220; raidActive = false; dayNightK = 0; wasNight = false;
+  rainT = 0; rainbowT = 0; nextRainT = 240; rain.visible = false; rainbow.visible = false;
+  depth = 0; depthFoes = []; depthScene = null;
+  zone = "mountain"; scene = world; groundFn = terrainHeight;
+
+  mates = Object.keys(GOODIES).filter(k => k !== chosen).map((k, i) => {
+    const m = { id: k, x: HQ.x + 2 + i * 2, z: HQ.z + 12 + i, hp: GOODIES[k].strength, maxHp: GOODIES[k].strength,
+                state: "ok", shootCd: 1 + i, recoverT: 0, mesh: billboard(k, 1.7, world) };
+    return m;
+  });
+
+  villains = [];
+  const fSpots = [[20, -30], [45, -22], [62, -58], [30, -72], [-52, 18], [12, -58],
+                  [CAVE.x - 6, CAVE.z - 4], [CAVE.x + 5, CAVE.z + 3], [CAVE.x + 2, CAVE.z - 7], [CAVE.x - 3, CAVE.z + 6]];
+  fSpots.forEach(([x, z], i) => villains.push({
+    kind: "follower", id: "f" + i, x, z, hx: x, hz: z, hp: 70, maxHp: 70,
+    wanderA: i, respawnT: 0, mesh: billboard("follower", 2.0, world),
+  }));
+  villains.push({
+    kind: "boss", id: "boss", x: CAVE_DOOR.x - 8, z: CAVE_DOOR.z + 6, hx: CAVE_DOOR.x - 4, hz: CAVE_DOOR.z + 6,
+    hp: 100, maxHp: 100, heading: 0, patrolA: 0, respawnT: 0, mesh: billboard("boss", 3.4, world),
+  });
+
+  /* pickups — deterministic placement */
+  pickups = []; pid = 0;
+  const rng = mulberry32(20260712);
+  const scatterP = (type, n, ok) => {
+    for (let i = 0; i < n; i++) {
+      for (let t = 0; t < 60; t++) {
+        const x = (rng() - .5) * 330, z = (rng() - .5) * 330;
+        if (inLake(x, z) || inCave(x, z)) continue;
+        if (dist2(x, z, HQ.x, HQ.z) < 14) continue;
+        if (ok && !ok(x, z)) continue;
+        addPickup(type, x, z); break;
+      }
+    }
+  };
+  scatterP("wood", 10);
+  scatterP("metal", 5, (x, z) => dist2(x, z, MOUNTAIN.x, MOUNTAIN.z) < 110);
+  scatterP("snack", 8);
+  scatterP("medkit", 4);
+  /* cave stash + summit stash (riddle-gated) */
+  [[-5, -3], [4, 5], [7, -4], [-6, 5], [0, -8], [-2, 8]].forEach(([dx, dz]) => addPickup("metal", CAVE.x + dx, CAVE.z + dz));
+  [[58, -78], [63, -82], [60, -74]].forEach(([x, z]) => addPickup("metal", x, z));
+  /* berry bushes regrow; pearls hide on the lake bottom */
+  BERRY_SPOTS.forEach(s => addPickup("berries", s.x, s.z));
+  PEARL_SPOTS.forEach(s => addPickup("pearl", s.x, s.z));
+
+  /* NPCs */
+  botas = [
+    { id: "b0", x: -42, z: 12, favour: "friend", stage: 0, cd: 0, mesh: billboard("botablock", .9, world) },
+    { id: "b1", x: 24, z: -14, favour: "flame", stage: 0, cd: 0, mesh: billboard("botablock", .9, world) },
+    { id: "b2", x: -18, z: 52, favour: "weapon", stage: 0, cd: 0, mesh: billboard("botablock", .9, world) },
+    { id: "b3", x: 48, z: 34, favour: "joke", stage: 0, cd: 0, mesh: billboard("botablock", .9, world) },
+    { id: "trader", x: 9, z: -7, favour: "trade", stage: 0, cd: 0, mesh: billboard("botablock", 1.1, world) },
+  ];
+  riddlers = [
+    { id: "r0", x: CAVE_DOOR.x, z: CAVE_DOOR.z, r: 7, solved: false, riddle: 0, mesh: billboard("riddler", 1.1, world), gateName: "the cave" },
+    { id: "r1", x: SUMMIT_GATE.x, z: SUMMIT_GATE.z, r: 8, solved: false, riddle: 3, mesh: billboard("riddler", 1.1, world), gateName: "the summit treasure" },
+  ];
+  toppleRocks = [[-30, -18], [32, 22], [-8, -58], [72, -28]].map(([x, z], i) => {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.6, 7), new THREE.MeshLambertMaterial({ color: 0xa5a19a }));
+    m.position.set(x, terrainHeight(x, z) + 1.1, z); m.rotation.z = .28; world.add(m);
+    return { x, z, mesh: m };
+  });
+  planeEnt = { mesh: billboard("plane", 2.6, world), here: false };
+  planeEnt.mesh.visible = false;
+
+  /* Egypt entities */
+  mummies = [];
+  treasureEnt = { x: PYRAMID.x, z: PYRAMID.z + 37, got: false, spark: sparkle(egypt) };
+  treasureEnt.spark.scale.set(1.6, 1.6, 1);
+  treasureEnt.spark.position.set(treasureEnt.x, egyptHeight(treasureEnt.x, treasureEnt.z) + 1.2, treasureEnt.z);
+  rebuildEgypt();
+
+  buildTentAndFlags();
+  buildHudTeam();
+  sessionActive = true;
+  strandedT = 0; faintCarryT = 0; vignetteT = 0;
+  toast("Welcome to Mountain Side! Explore, collect and watch out for Followers…");
+}
+
+/* Egypt gets rebuilt for every holiday — more (and bigger) mummies each time */
+function rebuildEgypt() {
+  mummies.forEach(m => m.mesh.parent && m.mesh.parent.remove(m.mesh));
+  mummies = [];
+  const n = Math.min(24, 6 + 2 * adventureLevel);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU, r = 26 + (i % 4) * 5;
+    const hp = 60 + 15 * (adventureLevel - 1);
+    mummies.push({ kind: "mummy", id: "m" + i, x: PYRAMID.x + Math.cos(a) * r, z: PYRAMID.z + Math.sin(a) * r,
+      hp, maxHp: hp, swipeCd: 0, big: false, mesh: billboard(i % 2 ? "mummy2" : "mummy1", 2.4, egypt) });
+  }
+  if (adventureLevel >= 2) {   /* the MUMMY KING guards the pyramid door */
+    const hp = 150 + 50 * (adventureLevel - 1);
+    mummies.push({ kind: "mummy", id: "mking", x: PYRAMID.x, z: PYRAMID.z + 32,
+      hp, maxHp: hp, swipeCd: 0, big: true, mesh: billboard("mummy1", 4.8, egypt) });
+  }
+  if (treasureEnt) { treasureEnt.got = false; treasureEnt.spark.visible = true; }
+}
+
+/* HQ tent — two crossed quads of the actual drawing, plus flags per level */
+let tentGroup = null;
+function buildTentAndFlags() {
+  if (tentGroup) world.remove(tentGroup);
+  tentGroup = new THREE.Group();
+  const h = 6.5;
+  const q1 = billboard("tent", h, world); q1.parent.remove(q1);
+  const q2 = billboard("tent", h, world); q2.parent.remove(q2);
+  q2.rotation.y = Math.PI / 2;
+  [q1, q2].forEach(q => { q.position.y = h / 2; tentGroup.add(q); });
+  for (let i = 0; i < hqLevel; i++) {
+    const flag = new THREE.Mesh(new THREE.ConeGeometry(.4, .8, 4),
+      new THREE.MeshBasicMaterial({ color: [0xff7bc6, 0xffd23f, 0x6fe26f, 0x9fe8ff, 0xb28cff][i % 5] }));
+    flag.position.set(Math.cos(i * 2.1) * 3.4, 5.4 + i * .5, Math.sin(i * 2.1) * 3.4);
+    tentGroup.add(flag);
+  }
+  tentGroup.position.set(HQ.x, terrainHeight(HQ.x, HQ.z), HQ.z);
+  world.add(tentGroup);
+}
+
+/* ---------------- save / load ---------------- */
+function saveGame(silent) {
+  if (!sessionActive) return;
+  const data = {
+    v: 2, character: player.id, zone, depth, pos: [player.x, player.y, player.z], yaw, pitch,
+    hp: player.hp, inv, hqLevel, groupMode, bossDefeated, egyptUnlocked, playTime,
+    adventureLevel, xp, explorerLevel, stats, badges, tasks,
+    mates: mates.map(m => ({ id: m.id, hp: m.hp, state: m.state, x: m.x, z: m.z })),
+    /* only permanent (non-respawning) mountain pickups need remembering */
+    collected: pickups.filter(p => p.got && p.sc === world && !p.respawn).map(p => p.id),
+    villains: villains.filter(v => !v.raid).map(v => ({ id: v.id, hp: v.hp, maxHp: v.maxHp, respawnT: v.respawnT })),
+    mummies: mummies.map(m => m.hp),
+    botas: botas.map(b => ({ stage: b.stage, favour: b.favour, qx: b.qx, qz: b.qz })),
+    riddlers: riddlers.map(r => r.solved),
+    treasureGot: treasureEnt.got,
+  };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); if (!silent) toast("Game saved! 💾"); } catch (e) {}
+}
+function loadGame() {
+  let d;
+  try { d = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return false; }
+  if (!d || (d.v !== 1 && d.v !== 2) || !GOODIES[d.character]) return false;
+  newGame(d.character);
+  yaw = d.yaw; pitch = d.pitch;
+  inv = Object.assign(inv, d.inv); hqLevel = d.hqLevel; groupMode = d.groupMode;
+  bossDefeated = d.bossDefeated; egyptUnlocked = d.egyptUnlocked; playTime = d.playTime || 0;
+  adventureLevel = d.adventureLevel || 1; xp = d.xp || 0; explorerLevel = d.explorerLevel || 1;
+  stats = d.stats || {}; badges = d.badges || [];
+  if (Array.isArray(d.tasks) && d.tasks.length) tasks = d.tasks;
+  player.maxHp = GOODIES[player.id].strength + hpBonus();
+  player.hp = Math.min(d.hp, player.maxHp);
+  d.mates.forEach(s => {
+    const m = mates.find(x => x.id === s.id);
+    if (m) { m.maxHp = GOODIES[m.id].strength + hpBonus(); m.hp = Math.min(s.hp, m.maxHp); m.state = s.state; m.x = s.x; m.z = s.z; }
+  });
+  (d.collected || []).forEach(id => { const p = pickups.find(x => x.id === id); if (p) collectMesh(p); });
+  (d.villains || []).forEach(s => {
+    const v = villains.find(x => x.id === s.id);
+    if (v) { v.hp = s.hp; if (s.maxHp) v.maxHp = s.maxHp; v.respawnT = s.respawnT || 0; if (v.hp <= 0) v.mesh.visible = false; }
+  });
+  rebuildEgypt();
+  (d.mummies || []).forEach((hp, i) => { if (mummies[i]) { mummies[i].hp = hp; if (hp <= 0) mummies[i].mesh.visible = false; } });
+  (d.botas || []).forEach((s, i) => {
+    if (!botas[i] || botas[i].favour === "trade") return;
+    if (typeof s === "object") {
+      botas[i].stage = s.stage;
+      if (s.favour) botas[i].favour = s.favour;
+      if (s.qx !== undefined) { botas[i].qx = s.qx; botas[i].qz = s.qz; }
+    }
+    else botas[i].stage = s;
+  });
+  (d.riddlers || []).forEach((s, i) => { if (riddlers[i]) riddlers[i].solved = s; });
+  treasureEnt.got = !!d.treasureGot;
+  if (treasureEnt.got) treasureEnt.spark.visible = false;
+  const savedZone = d.zone || (d.inEgypt ? "egypt" : "mountain");
+  if (savedZone === "egypt") enterEgypt(true);
+  else if (savedZone === "depth" && d.depth >= 1) enterDepth(d.depth, true);
+  else {
+    zone = "mountain"; inEgypt = false; scene = world; groundFn = terrainHeight;
+  }
+  if (zone === "mountain" && (inv.metal >= FLIGHT_COST || egyptUnlocked)) {
+    planeEnt.here = true; planeEnt.mesh.visible = true;
+    setOnGround(planeEnt.mesh, PLANE_SPOT.x, PLANE_SPOT.z, terrainHeight);
+  }
+  player.x = d.pos[0]; player.y = d.pos[1]; player.z = d.pos[2];
+  buildTentAndFlags();
+  return true;
+}
+setInterval(() => { if (state === STATE.PLAY) saveGame(true); }, 30000);
+addEventListener("visibilitychange", () => { if (document.hidden) saveGame(true); });
+
+/* ---------------- UI plumbing ---------------- */
+function show(id) { $(id).classList.remove("hidden"); }
+function hide(id) { $(id).classList.add("hidden"); }
+function toast(msg, secs) {
+  $("toast").textContent = msg; show("toast"); toastTimer = secs || 4;
+}
+function openTitle() {
+  state = STATE.TITLE; document.exitPointerLock && document.exitPointerLock();
+  $("btnResume").disabled = !localStorage.getItem(SAVE_KEY);
+  $("btnSave").disabled = !sessionActive;
+  $("btnPlay").textContent = sessionActive ? "Play" : "Play";
+  show("title"); hide("hud"); hide("dialog"); hide("groupMenu");
+}
+function startPlay() {
+  hide("title"); hide("select"); hide("dialog"); hide("groupMenu"); hide("faint"); hide("dead"); hide("win");
+  show("hud"); state = STATE.PLAY;
+  if (!isTouch) canvas.requestPointerLock();
+  buildHudMe();
+}
+function openSelect() {
+  hide("title"); show("select"); state = STATE.SELECT;
+}
+
+$("titleArt").src = ASSETS.title; $("bossMark").src = ASSETS.boss;
+$("groupArt").src = ASSETS.group; $("jinkyImg").src = ASSETS.jinky;
+$("winGroup").src = ASSETS.group; $("winPyr").src = ASSETS.pyramid;
+
+let chosenChar = null;
+{
+  const cards = $("cards");
+  Object.entries(GOODIES).forEach(([k, g]) => {
+    const d = document.createElement("div");
+    d.className = "charCard";
+    d.innerHTML = `<img src="${ASSETS[k]}" alt="${g.name}"><div class="nm">${g.name}</div>
+      <div class="st">Type: <b>${g.type}</b><br>Power: <b>${g.power}</b><br>Strength: <b>${g.strength}%</b></div>`;
+    d.onclick = () => {
+      document.querySelectorAll(".charCard").forEach(c => c.classList.remove("sel"));
+      d.classList.add("sel"); chosenChar = k; $("btnGo").disabled = false; Sound.click();
+    };
+    cards.appendChild(d);
+  });
+}
+$("btnGo").onclick = () => { if (chosenChar) { Sound.fanfare(); newGame(chosenChar); startPlay(); } };
+$("btnNew").onclick = () => { Sound.click(); openSelect(); };
+$("btnPlay").onclick = () => {
+  Sound.click();
+  if (sessionActive) startPlay();
+  else if (localStorage.getItem(SAVE_KEY) && loadGame()) startPlay();
+  else openSelect();
+};
+$("btnResume").onclick = () => { Sound.click(); if (loadGame()) startPlay(); else toast("No saved game yet!"); };
+$("btnSave").onclick = () => { Sound.click(); saveGame(); };
+$("btnQuit").onclick = () => { saveGame(true); window.location.href = "../index.html"; };
+$("btnDeadNew").onclick = () => { Sound.click(); hide("dead"); openSelect(); };
+$("btnWinNew").onclick = () => {
+  Sound.click(); hide("win"); state = STATE.PLAY;
+  if (!isTouch) canvas.requestPointerLock();
+};
+$("btnWinQuit").onclick = () => { saveGame(true); window.location.href = "../index.html"; };
+document.querySelectorAll("#groupMenu .wobbly").forEach(b => {
+  b.onclick = () => {
+    groupMode = b.dataset.mode; hide("groupMenu"); state = STATE.PLAY;
+    Sound.yes();
+    toast({ rescue: "Team: rescue mission!", stick: "Team: sticking together!",
+            spread: "Team: spreading out to search!", home: "Team: heading back to HQ!" }[groupMode]);
+    if (!isTouch) canvas.requestPointerLock();
+  };
+});
+
+/* dialog helper */
+let dialogOpen = false;
+function openDialog(imgName, title, text, options) {
+  dialogOpen = true; document.exitPointerLock && document.exitPointerLock();
+  $("dImg").src = ASSETS[imgName] || ""; $("dImg").style.display = imgName ? "" : "none";
+  $("dTitle").textContent = title; $("dText").textContent = text;
+  const bx = $("dBtns"); bx.innerHTML = "";
+  options.forEach(([label, fn]) => {
+    const b = document.createElement("button");
+    b.className = "wobbly"; b.textContent = label;
+    b.onclick = () => { Sound.click(); fn(); };
+    bx.appendChild(b);
+  });
+  show("dialog");
+}
+function closeDialog() {
+  dialogOpen = false; hide("dialog");
+  if (state === STATE.PLAY && !isTouch) canvas.requestPointerLock();
+}
+
+/* ---------------- HUD ---------------- */
+function buildHudMe() {
+  $("meImg").src = ASSETS[player.id];
+  $("mePow").textContent = GOODIES[player.id].power + "!";
+}
+function buildHudTeam() {
+  const t = $("team"); t.innerHTML = "";
+  mates.forEach(m => {
+    const d = document.createElement("div");
+    d.className = "mate"; d.id = "mate_" + m.id;
+    d.innerHTML = `<img src="${ASSETS[m.id]}" alt=""><div class="hpbar"><div></div></div><div class="badge"></div>`;
+    t.appendChild(d);
+  });
+}
+let hudT = 0;
+function updateHud(dt) {
+  hudT -= dt; if (hudT > 0) return; hudT = .12;
+  $("meHp").style.width = clamp(player.hp / player.maxHp * 100, 0, 100) + "%";
+  $("meHp").style.background = player.hp / player.maxHp > .4 ? "#6fe26f" : "#ff7043";
+  mates.forEach(m => {
+    const el = $("mate_" + m.id); if (!el) return;
+    el.querySelector(".hpbar div").style.width = clamp(m.hp / m.maxHp * 100, 0, 100) + "%";
+    el.querySelector(".badge").textContent = m.state === "fainted" ? "😵" : "";
+    el.querySelector("img").style.opacity = m.state === "fainted" ? .4 : 1;
+  });
+  $("inv").innerHTML =
+    `🧃 ${inv.juice} &nbsp; 🍪 ${inv.cookies}<br>🪵 ${inv.wood} &nbsp; ⚙️ ${inv.metal}/${FLIGHT_COST}` +
+    (inv.pearls ? ` &nbsp; 🫧 ${inv.pearls}` : "") + `<br>` +
+    `💉 ${inv.syringes} &nbsp; 🩹 ${inv.plasters}` +
+    (inv.sword ? " 🗡️" : "") + (inv.shield ? " 🛡️" : "") + (inv.torch ? " 🔥" : "") +
+    (player.carrying === "bota" ? " 📦(Bota!)" : "") + (player.carrying === "sword" ? " 🗡️(returning)" : "");
+  $("tasks").innerHTML =
+    `📋 <b>Tasks</b><br>` +
+    tasks.map(tk => `▢ ${tk.txt} (${Math.min(tk.have, tk.need)}/${tk.need})`).join("<br>") +
+    `<br><span class="lvl">⭐ Explorer Lv ${explorerLevel} · 🗺️ Adventure Lv ${adventureLevel}` +
+    ` · 🏅 ${badges.length} · 🏆 ${stats.holidays || 0}</span>` +
+    (zone === "depth" ? `<br>⛏️ Cave Depth ${depth}` : "");
+  const danger = nearestVillainDist() < 25;
+  $("jinky").classList.toggle("alert", danger);
+  $("jinkyTxt").textContent = danger ? "EEEEE!!" : "zzz";
+  if (danger && jinkyCd <= 0) { Sound.squeal(); jinkyCd = 6; }
+  if (promptTxt) { $("prompt").textContent = promptTxt; show("prompt"); } else hide("prompt");
+}
+function nearestVillainDist() {
+  let best = 1e9;
+  currentFoes().forEach(v => { if (v.hp > 0) best = Math.min(best, dist2(player.x, player.z, v.x, v.z)); });
+  return best;
+}
+
+/* ---------------- interactions ---------------- */
+function collectMesh(p) {
+  p.got = true;
+  if (p.mesh) p.mesh.visible = false;
+  if (p.spark) p.spark.visible = false;
+}
+function hqCost() { return { wood: 5 + 2 * hqLevel, metal: 2 + hqLevel }; }
+function tryCollect() {
+  /* pickups */
+  for (const p of pickups) {
+    if (p.got || p.sc !== scene) continue;
+    if (dist2(player.x, player.z, p.x, p.z) < 3) {
+      if (p.type === "pearl" && player.y > WATER_Y - 1.2) {
+        toast("The pearl is deep underwater — DenZone can dive with X! 🫧"); return;
+      }
+      collectMesh(p); p.respawnT = p.respawn; Sound.collect();
+      if (p.type === "wood") { inv.wood++; taskEvent("wood"); toast("Wood! Use it to strengthen HQ. 🪵"); }
+      else if (p.type === "metal") {
+        inv.metal++; addStat("metals"); taskEvent("metal");
+        toast(inv.metal >= FLIGHT_COST ? `${inv.metal} metals saved — enough to hire the plane! ✈️` : `Metal! ${inv.metal}/${FLIGHT_COST} for the plane. ⚙️`);
+        checkPlane();
+      }
+      else if (p.type === "snack") { inv.cookies += 2; inv.juice += 1; taskEvent("snack"); toast("Snacks! +2 cookies, +1 juice 🍪🧃"); }
+      else if (p.type === "berries") { inv.cookies += 2; taskEvent("snack"); toast("Juicy berries! +2 cookies 🫐"); }
+      else if (p.type === "pearl") { inv.pearls++; addStat("pearls"); taskEvent("pearl"); gainXp(5); toast(`A pearl! The Trader Bota loves these. 🫧 (${inv.pearls})`); }
+      else if (p.type === "medkit") { inv.syringes++; inv.plasters++; toast("A medical kit! +1 syringe, +1 plaster 💉🩹"); }
+      return;
+    }
+  }
+  /* Egypt treasure — a holiday trophy! */
+  if (zone === "egypt" && !treasureEnt.got && mummies.every(m => m.hp <= 0) &&
+      dist2(player.x, player.z, treasureEnt.x, treasureEnt.z) < 4) {
+    holidayVictory(); return;
+  }
+  /* campfire torch */
+  if (zone === "mountain" && dist2(player.x, player.z, CAMPFIRE.x, CAMPFIRE.z) < 3.5) {
+    if (!inv.torch) { inv.torch = true; Sound.collect(); toast("You light a torch from the campfire! 🔥"); }
+    else toast("Your torch is already lit! 🔥");
+    return;
+  }
+  /* strengthen HQ */
+  if (zone === "mountain" && dist2(player.x, player.z, HQ.x, HQ.z) < 7) {
+    const c = hqCost();
+    if (inv.wood >= c.wood && inv.metal >= c.metal) {
+      inv.wood -= c.wood; inv.metal -= c.metal; hqLevel++;
+      buildTentAndFlags(); Sound.fanfare();
+      toast(`HQ strengthened to level ${hqLevel}! Villains keep further away, raids get smaller.`);
+    } else toast(`Strengthening HQ to level ${hqLevel + 1} needs ${c.wood} wood + ${c.metal} metal.`);
+    return;
+  }
+  /* stolen weapon / lost bota pickup handled in quest code */
+  questCollect();
+}
+function checkPlane() {
+  if (inv.metal >= FLIGHT_COST && !planeEnt.here && zone === "mountain") {
+    planeEnt.here = true; planeEnt.mesh.visible = true;
+    setOnGround(planeEnt.mesh, PLANE_SPOT.x, PLANE_SPOT.z, terrainHeight);
+    Sound.plane(); toast("A plane has landed at HQ! Press E at the plane to fly to EGYPT! ✈️", 7);
+  }
+}
+
+/* speak: riddlers, botas, HQ, plane */
+function trySpeak() {
+  if (zone === "egypt") {
+    if (dist2(player.x, player.z, PLANE_SPOT.x, PLANE_SPOT.z) < 6)
+      openDialog("plane", "The plane", "Fly back home to the Mountain Side? (The flight home is free!)", [
+        ["Yes, fly home!", () => { closeDialog(); leaveEgypt(); }],
+        ["Stay in Egypt", closeDialog],
+      ]);
+    return;
+  }
+  if (zone === "depth") { toast("It's very quiet down here… (B at a hole to climb up or down)"); return; }
+  for (const r of riddlers) {
+    if (dist2(player.x, player.z, r.x, r.z) < 8.5) { riddleDialog(r); return; }
+  }
+  for (const b of botas) {
+    if (dist2(player.x, player.z, b.x, b.z) < 5) { botaDialog(b); return; }
+  }
+  if (planeEnt.here && dist2(player.x, player.z, PLANE_SPOT.x, PLANE_SPOT.z) < 6) {
+    openDialog("plane", "The plane",
+      `Hire the plane for ${FLIGHT_COST} metals and fly to Egypt? ` +
+      (adventureLevel > 1 ? `(Holiday #${(stats.holidays || 0) + 1} — the mummies are even stronger now!)` : "(Watch out for the MUMMIES!)"), [
+      [`Fly to EGYPT! ✈️ (spend ${FLIGHT_COST} ⚙️)`, () => {
+        if (inv.metal >= FLIGHT_COST) { inv.metal -= FLIGHT_COST; closeDialog(); enterEgypt(false); }
+        else { closeDialog(); toast(`You need ${FLIGHT_COST} metals saved to hire the plane! (${inv.metal}/${FLIGHT_COST})`); }
+      }],
+      ["Not yet", closeDialog],
+    ]);
+    return;
+  }
+  if (dist2(player.x, player.z, HQ.x, HQ.z) < 7) { hqDialog(); return; }
+}
+
+/* HQ: take a break, switch hero, see badges */
+function hqDialog() {
+  openDialog("tent", "Headquarters", "Welcome back! This is where you start… and where you can take a break.", [
+    ["Switch hero!", () => switchDialog()],
+    [`See badges (${badges.length}/${BADGES.length})`, () => badgesDialog()],
+    ["Back to the adventure", closeDialog],
+  ]);
+}
+function switchDialog() {
+  openDialog("group", "Switch hero", "Who do you want to play as? (Everyone gets a rest and a snack!)",
+    mates.map(m => [`${GOODIES[m.id].name} — ${GOODIES[m.id].power}!`, () => doSwitch(m.id)])
+      .concat([["Stay as " + GOODIES[player.id].name, closeDialog]]));
+}
+function doSwitch(newId) {
+  const oldId = player.id;
+  const m = mates.find(x => x.id === newId);
+  if (!m) { closeDialog(); return; }
+  m.id = oldId; m.maxHp = GOODIES[oldId].strength + hpBonus(); m.hp = m.maxHp; m.state = "ok";
+  m.mesh.parent.remove(m.mesh);
+  m.mesh = billboard(oldId, 1.7, scene);
+  player.id = newId;
+  player.maxHp = GOODIES[newId].strength + hpBonus(); player.hp = player.maxHp;
+  player.diving = false; player.mode = "walk";
+  buildHudMe();
+  document.querySelectorAll("#team .mate").forEach(el => el.remove());
+  buildHudTeam();
+  Sound.fanfare(); closeDialog();
+  toast(`You are now ${GOODIES[newId].name}! Power: ${GOODIES[newId].power}!`, 5);
+}
+function badgesDialog() {
+  const lines = BADGES.map(([id, name]) => (badges.includes(id) ? "🏅 " : "▢ ") + name);
+  openDialog("group", `Badges — ${badges.length}/${BADGES.length}`,
+    lines.join("  ·  ") + `  —  ⭐ Explorer Level ${explorerLevel} · 🏆 ${stats.holidays || 0} holidays · deepest cave: ${stats.depth || 0}`,
+    [["Nice!", closeDialog]]);
+}
+
+function riddleDialog(r) {
+  const rid = RIDDLES[r.riddle % RIDDLES.length];
+  const isGate = !r.solved;
+  openDialog("riddler", isGate ? "A Riddler blocks " + r.gateName + "!" : "Riddle challenge!",
+    (isGate ? "" : "Ssso, you're back! Answer right and win a sssshiny metal… ") + rid.q,
+    rid.a.map((ans, i) => [ans, () => {
+      if (i === rid.ok) {
+        Sound.yes(); addStat("riddles"); taskEvent("riddle"); gainXp(10); r.riddle++;
+        if (isGate) { r.solved = true; closeDialog(); toast("Correct! The Riddler slides aside. 🐍"); }
+        else { inv.metal++; addStat("metals"); checkPlane(); closeDialog(); toast("Correct! The Riddler coughs up a shiny metal! ⚙️"); }
+      } else {
+        Sound.no(); r.riddle++;
+        closeDialog(); toast("“Sssnot quite! Come back and try another…”");
+      }
+    }]).concat(isGate ? [] : [["Not now", closeDialog]]));
+}
+
+function questSpot(nearX, nearZ, spread) {
+  for (let t = 0; t < 30; t++) {
+    const x = nearX + (Math.random() - .5) * spread, z = nearZ + (Math.random() - .5) * spread;
+    if (!inLake(x, z) && !inCave(x, z) && Math.hypot(x, z) < WORLD_R - 10) return { x, z };
+  }
+  return { x: nearX, z: nearZ };
+}
+function botaDialog(b) {
+  const done = [["Bye!", closeDialog]];
+  if (b.favour === "trade") {
+    const trade = (ok, take, give, msg) => {
+      if (!ok) { toast("Not enough to trade!"); return; }
+      take(); give(); Sound.collect(); toast(msg); updateHud(1);
+    };
+    openDialog("botablock", "Trader Bota-Block", "Hello friend! I looove swapping things. What shall we trade?", [
+      ["5 🪵 wood → 1 ⚙️ metal", () => trade(inv.wood >= 5, () => inv.wood -= 5, () => { inv.metal++; addStat("metals"); checkPlane(); }, "Swapped! +1 metal ⚙️")],
+      ["3 🫧 pearls → 2 ⚙️ metal", () => trade(inv.pearls >= 3, () => inv.pearls -= 3, () => { inv.metal += 2; addStat("metals", 2); checkPlane(); }, "Ooo, pearls! +2 metal ⚙️")],
+      ["4 🪵 wood → 1 💉 syringe", () => trade(inv.wood >= 4, () => inv.wood -= 4, () => inv.syringes++, "Swapped! +1 syringe 💉")],
+      ["3 🍪 + 1 🧃 → 1 🩹 plaster", () => trade(inv.cookies >= 3 && inv.juice >= 1, () => { inv.cookies -= 3; inv.juice -= 1; }, () => inv.plasters++, "Swapped! +1 plaster 🩹")],
+      ["Bye!", closeDialog],
+    ]);
+    return;
+  }
+  if (b.favour === "joke") {
+    b.cd = 40; b.stage = 2;   // jokes rotate into new favours too
+    openDialog("botablock", "Bota-Block", JOKES[Math.floor(playTime) % JOKES.length], done);
+    return;
+  }
+  if (b.stage === 2) { openDialog("botablock", "Bota-Block", "Thanks again, friend! Come back later — I might need another favour…", done); return; }
+  if (b.favour === "friend") {
+    if (b.stage === 0) {
+      openDialog("botablock", "Bota-Block", "I lost my little friend somewhere out there! Can you find them and carry them back? (Press K near them!)", [
+        ["I'll find them!", () => {
+          const s = questSpot(LAKE.x + 10, LAKE.z - 40, 60); b.qx = s.x; b.qz = s.z; b.stage = 1;
+          closeDialog(); toast("Jinky sniffs… the lost Bota-Block is somewhere near the lake! (B to search)");
+        }],
+        ["Maybe later", closeDialog]]);
+    } else if (player.carrying === "bota" && player.carryFor === b.id) {
+      player.carrying = null; b.stage = 2; b.cd = 90 + Math.random() * 90;
+      rewardFromBota(b, "Here — 2 shiny metals I found!", () => { inv.metal += 2; addStat("metals", 2); checkPlane(); });
+    } else openDialog("botablock", "Bota-Block", "My friend is still lost near the lake… please bring them back! (K to scoop them up)", done);
+  } else if (b.favour === "flame") {
+    if (b.stage === 0) {
+      openDialog("botablock", "Bota-Block", "My flame went out and I'm so cold! Could you bring fire from the HQ campfire? (Press K at the campfire!)", [
+        ["I'll get fire!", () => { b.stage = 1; closeDialog(); }],
+        ["Maybe later", closeDialog]]);
+    } else if (inv.torch) {
+      inv.torch = false; b.stage = 2; b.cd = 90 + Math.random() * 90;
+      rewardFromBota(b, "My flame is back! Take these snacks — 3 cookies and a juice!", () => { inv.cookies += 3; inv.juice += 1; });
+    } else openDialog("botablock", "Bota-Block", "Brrr… the fire is at the HQ campfire. Press K there to light a torch!", done);
+  } else if (b.favour === "weapon") {
+    if (b.stage === 0) {
+      openDialog("botablock", "Bota-Block", "A Follower stole my sword and dropped it up on the mountain side! Will you bring it back? (Press K near it!)", [
+        ["I'll get it back!", () => {
+          const s = questSpot(34, -30, 40); b.qx = s.x; b.qz = s.z; b.stage = 1;
+          closeDialog(); toast("The stolen sword is up where the Followers prowl…");
+        }],
+        ["Maybe later", closeDialog]]);
+    } else if (player.carrying === "sword" && player.carryFor === b.id) {
+      player.carrying = null; b.stage = 2; b.cd = 90 + Math.random() * 90;
+      rewardFromBota(b, inv.sword ? "You found it! Take 2 metals as thanks!" : "You found it! Actually… you keep it! A sword friend is a good friend.",
+        () => { if (inv.sword) { inv.metal += 2; addStat("metals", 2); checkPlane(); } else inv.sword = true; });
+    } else openDialog("botablock", "Bota-Block", "The sword is up the mountain side where the Followers prowl… (K to grab it)", done);
+  }
+}
+function rewardFromBota(b, msg, fn) {
+  Sound.fanfare(); fn();
+  addStat("favours"); taskEvent("favour"); gainXp(15);
+  if (questMeshes[b.id]) { questMeshes[b.id].parent && questMeshes[b.id].parent.remove(questMeshes[b.id]); delete questMeshes[b.id]; }
+  openDialog("botablock", "Bota-Block", msg, [["Hooray!", closeDialog]]);
+}
+/* favours come back around forever */
+function updateBotas(dt) {
+  const FAVOURS = ["friend", "flame", "weapon", "joke"];
+  botas.forEach(b => {
+    if (b.favour === "trade" || b.stage !== 2) return;
+    b.cd -= dt;
+    if (b.cd <= 0) {
+      b.stage = 0;
+      b.favour = FAVOURS[Math.floor(Math.random() * FAVOURS.length)];
+    }
+  });
+}
+/* quest items in the world */
+let questMeshes = {};
+function questCollect() {
+  for (const b of botas) {
+    if (b.stage !== 1 || b.qx === undefined || player.carrying) continue;
+    if ((b.favour === "friend" || b.favour === "weapon") && dist2(player.x, player.z, b.qx, b.qz) < 4) {
+      player.carrying = b.favour === "friend" ? "bota" : "sword";
+      player.carryFor = b.id;
+      Sound.collect();
+      toast(b.favour === "friend" ? "You found the little Bota-Block! Carry it back! 📦" : "You grabbed the stolen sword! Return it! 🗡️");
+      if (questMeshes[b.id]) questMeshes[b.id].visible = false;
+      return;
+    }
+  }
+}
+function ensureQuestMeshes() {
+  for (const b of botas) {
+    if (b.stage === 1 && b.qx !== undefined && !questMeshes[b.id] && (b.favour === "friend" || b.favour === "weapon")) {
+      questMeshes[b.id] = billboard(b.favour === "friend" ? "botablock" : "sword", b.favour === "friend" ? .8 : 1.1, world);
+      setOnGround(questMeshes[b.id], b.qx, b.qz, terrainHeight);
+    }
+  }
+}
+
+/* medical: N */
+function useMedical() {
+  /* revive a fainted teammate first if close */
+  for (const m of mates) {
+    if (m.state === "fainted" && dist2(player.x, player.z, m.x, m.z) < 4) {
+      if (inv.syringes > 0) {
+        inv.syringes--; m.state = "ok"; m.hp = Math.round(m.maxHp * .6);
+        Sound.heal(); toast(`${GOODIES[m.id].name} wakes up! 💉`);
+      } else toast("No syringes! Find a medical kit…");
+      return;
+    }
+  }
+  if (player.hp < player.maxHp) {
+    if (inv.plasters > 0) {
+      inv.plasters--; player.hp = player.maxHp;
+      Sound.heal(); toast("Plaster on — nourished to full health! 🩹");
+    } else toast("No plasters left! Find a medical kit…");
+  } else toast("You're already at full health!");
+}
+function eatSnack(kind) {
+  if (kind === "juice" && inv.juice > 0 && player.hp < player.maxHp) {
+    inv.juice--; player.hp = Math.min(player.maxHp, player.hp + 15); Sound.heal(); toast("Glug glug… Super Banana juice! +15 ❤️");
+  } else if (kind === "cookie" && inv.cookies > 0 && player.hp < player.maxHp) {
+    inv.cookies--; player.hp = Math.min(player.maxHp, player.hp + 5); Sound.heal(); toast("Nom nom… Giant chocolate cookie! +5 ❤️");
+  }
+}
+
+/* B — explore: descend/climb at holes, otherwise Jinky's metal compass */
+function exploreKey() {
+  if (zone === "mountain" && dist2(player.x, player.z, HOLE_DOWN.x, HOLE_DOWN.z) < 4) { enterDepth(1); return; }
+  if (zone === "depth") {
+    if (dist2(player.x, player.z, DEPTH_DOWN.x, DEPTH_DOWN.z) < 4) { enterDepth(depth + 1); return; }
+    if (dist2(player.x, player.z, DEPTH_UP.x, DEPTH_UP.z) < 4) {
+      if (depth <= 1) exitToMountain(); else enterDepth(depth - 1);
+      return;
+    }
+  }
+  explore();
+}
+function explore() {
+  let best = null, bd = 1e9;
+  for (const p of pickups) {
+    if (p.got || p.type !== "metal" || p.sc !== scene) continue;
+    const d = dist2(player.x, player.z, p.x, p.z);
+    if (d < bd) { bd = d; best = p; }
+  }
+  if (!best) { toast("Jinky sniffs around… no more metal nearby!"); return; }
+  const ang = Math.atan2(-(best.x - player.x), -(best.z - player.z));  // yaw that faces the target
+  let rel = ang - yaw;
+  while (rel > Math.PI) rel -= TAU; while (rel < -Math.PI) rel += TAU;
+  const dirTxt = Math.abs(rel) < .5 ? "straight ahead" : rel > 2.6 || rel < -2.6 ? "behind you" : rel > 0 ? "to the right" : "to the left";
+  $("compass").textContent = `🐸 Jinky sniffs… metal ${dirTxt}! (${Math.round(bd)}m)`;
+  show("compass"); compassTimer = 3.5; Sound.squeal();
+}
+
+/* ---------------- combat ---------------- */
+let arrows = [];
+function shoot() {
+  const cd = player.id === "mutian" ? .32 : .65;   // Quick fire!
+  if (player.shootCd > 0) return;
+  player.shootCd = inv.slingshot ? cd * .8 : cd;
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
+  spawnArrow(camera.position.clone().addScaledVector(dir, .6), dir.multiplyScalar(38), true);
+  Sound.shoot();
+}
+function spawnArrow(pos, vel, fromPlayer) {
+  const m = new THREE.Mesh(new THREE.ConeGeometry(.09, .7, 6),
+    new THREE.MeshBasicMaterial({ color: fromPlayer ? 0x684627 : 0x684627 }));
+  m.position.copy(pos); scene.add(m);
+  arrows.push({ mesh: m, vel, t: 2.2, fromPlayer });
+}
+function updateArrows(dt) {
+  const targets = currentFoes();
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    const a = arrows[i];
+    a.t -= dt;
+    a.vel.y -= 9 * dt;
+    a.mesh.position.addScaledVector(a.vel, dt);
+    a.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), a.vel.clone().normalize());
+    const p = a.mesh.position;
+    let dead = a.t <= 0 || p.y < groundFn(p.x, p.z);
+    if (!dead) {
+      for (const v of targets) {
+        if (v.hp <= 0) continue;
+        const vh = v.mesh.userData.h;
+        if (dist2(p.x, p.z, v.x, v.z) < 1.3 && p.y > v.mesh.position.y - vh / 2 && p.y < v.mesh.position.y + vh / 2 + .5) {
+          hitVillain(v, v.kind === "boss" ? 10 : 35); dead = true; break;
+        }
+      }
+    }
+    if (dead) { scene.remove(a.mesh); arrows.splice(i, 1); }
+  }
+}
+function hitVillain(v, dmg) {
+  v.hp -= dmg; Sound.hit();
+  v.mesh.material.color.set(0xff9999);
+  setTimeout(() => v.mesh.material.color.set(0xffffff), 120);
+  if (v.hp <= 0) {
+    v.mesh.visible = false;
+    if (v.kind === "boss") {
+      bossDefeated = true; v.respawnT = 200; Sound.fanfare();
+      addStat("bosses"); gainXp(40);
+      const nDrops = 3 + Math.min(4, adventureLevel - 1);
+      toast(`You beat the BOSS! It dropped ${nDrops} metals! ⭐ (It'll be back…)`, 6);
+      for (let i = 0; i < nDrops; i++) {
+        const a = i * 2.2;
+        addPickup("metal", v.x + Math.cos(a) * 1.8, v.z + Math.sin(a) * 1.8, world);
+      }
+    } else if (v.kind === "mummy") {
+      Sound.yes(); gainXp(v.big ? 30 : 12);
+      const left = mummies.filter(m => m.hp > 0).length;
+      toast(v.big ? "THE MUMMY KING IS DOWN!!" : left ? `Mummy down! ${left} left…` : "ALL MUMMIES BEATEN! Grab the treasure at the pyramid! ✨", 5);
+    } else {
+      addStat("followers"); taskEvent("followers"); gainXp(5);
+      if (zone === "depth") {
+        if (hash2(Math.round(v.x * 7), Math.round(playTime * 10)) < .55) addPickup("metal", v.x, v.z, depthScene);
+        if (!depthCleared && !depthFoes.some(f => f.hp > 0)) {
+          depthCleared = true; gainXp(10 + 2 * depth); Sound.fanfare();
+          toast(`Depth ${depth} cleared! ✨ The hole down goes even deeper…`, 6);
+        }
+      } else {
+        if (!v.raid) v.respawnT = 55;
+        const roll = hash2(Math.round(v.x), Math.round(playTime * 10));
+        const drop = inCave(v.x, v.z) ? (roll < .5 ? "metal" : "snack") : (roll < .35 ? "wood" : roll < .55 ? "snack" : roll < .7 ? "metal" : null);
+        if (drop) addPickup(drop, v.x, v.z, world);
+      }
+    }
+  }
+}
+
+/* ---------------- entity updates ---------------- */
+function updateMates(dt) {
+  mates.forEach((m, i) => {
+    if (m.state === "fainted") {
+      m.recoverT -= dt;
+      if (m.recoverT <= 0) { m.state = "ok"; m.hp = Math.round(m.maxHp * .35); toast(`${GOODIES[m.id].name} feels better!`); }
+      m.mesh.rotation.z = Math.PI / 2;   // lying down
+      setOnGround(m.mesh, m.x, m.z, groundFn);
+      m.mesh.position.y -= m.mesh.userData.h * .28;
+      return;
+    }
+    m.mesh.rotation.z = 0;
+    /* destination by group mode */
+    let tx, tz;
+    const base = zone === "egypt" ? PLANE_SPOT : zone === "depth" ? DEPTH_UP : HQ;
+    const basex = base.x, basez = base.z;
+    if (groupMode === "home") { tx = basex + 3 + i * 2.5; tz = basez + 6; }
+    else if (groupMode === "spread") {
+      const a = playTime * .12 + i * 2.1;
+      tx = player.x + Math.cos(a) * 24; tz = player.z + Math.sin(a) * 24;
+    } else if (groupMode === "rescue") {
+      const target = mates.find(x => x.state === "fainted") || (strandedT > 0 ? player : null);
+      if (target) { tx = target.x; tz = target.z; }
+      else { tx = player.x + Math.cos(i * 2.1) * 4; tz = player.z + Math.sin(i * 2.1) * 4; }
+    } else { tx = player.x + Math.cos(i * 2.1) * 4.5; tz = player.z + Math.sin(i * 2.1) * 4.5; }
+    const d = dist2(m.x, m.z, tx, tz);
+    if (d > 2.5) {
+      const spd = d > 14 ? 6.6 : 4.2;
+      m.x += (tx - m.x) / d * spd * dt; m.z += (tz - m.z) / d * spd * dt;
+    }
+    /* keep out of the lake unless denzone */
+    if (zone === "mountain" && m.id !== "denzone" && inLake(m.x, m.z)) {
+      const dx = m.x - LAKE.x, dz = m.z - LAKE.z, dd = Math.hypot(dx, dz) || 1;
+      m.x = LAKE.x + dx / dd * (LAKE.r + 8); m.z = LAKE.z + dz / dd * (LAKE.r + 8);
+    }
+    setOnGround(m.mesh, m.x, m.z, groundFn);
+    faceCamera(m.mesh);
+    /* auto-fight */
+    m.shootCd -= dt;
+    if (m.shootCd <= 0) {
+      const foes = currentFoes();
+      let tgt = null, bd = 20;
+      foes.forEach(v => { if (v.hp > 0) { const dd = dist2(m.x, m.z, v.x, v.z); if (dd < bd) { bd = dd; tgt = v; } } });
+      if (tgt) {
+        m.shootCd = 2.6;
+        const from = new THREE.Vector3(m.x, groundFn(m.x, m.z) + 1.4, m.z);
+        const to = new THREE.Vector3(tgt.x, groundFn(tgt.x, tgt.z) + 1.2, tgt.z);
+        const dir = to.sub(from).normalize().multiplyScalar(30);
+        dir.y += 2;
+        spawnArrow(from, dir, false);
+      } else m.shootCd = .8;
+    }
+    /* villains hurt mates too */
+    if (zone === "mountain") villains.forEach(v => {
+      if (v.hp > 0 && v.kind === "follower" && dist2(m.x, m.z, v.x, v.z) < 3) {
+        m.hp -= 6 * dt;
+        if (m.hp <= 0) { m.state = "fainted"; m.recoverT = 45; toast(`${GOODIES[m.id].name} fainted! Use a syringe (N) to wake them! 😵`, 5); }
+      }
+    });
+  });
+}
+
+function updateVillains(dt) {
+  const hqSafe = 12 + hqLevel * 6;
+  const fSpeed = Math.min(4.4, 3.1 + .12 * (adventureLevel - 1)) * (1 + .35 * dayNightK);
+  const aggroR = 30 + 8 * dayNightK;
+  let raidersLeft = 0;
+  villains.forEach(v => {
+    if (v.hp <= 0) {
+      if (v.kind === "follower" && !v.raid) {
+        v.respawnT -= dt;
+        if (v.respawnT <= 0) {
+          v.hp = v.maxHp = 70 + 8 * (adventureLevel - 1);
+          v.x = v.hx; v.z = v.hz; v.mesh.visible = true;
+        }
+      } else if (v.kind === "boss") {
+        v.respawnT -= dt;
+        if (bossDefeated && v.respawnT <= 0) {
+          v.hp = v.maxHp = 100 + 40 * (adventureLevel - 1);
+          bossDefeated = false; v.mesh.visible = true;
+          Sound.roar(); toast("👀 The BOSS is back… and angrier than ever!", 6);
+        }
+      }
+      return;
+    }
+    const pd = dist2(v.x, v.z, player.x, player.z);
+    if (v.kind === "follower" && v.raid) {
+      raidersLeft++;
+      /* raiders march on the tent, pinch some supplies, then flee */
+      if (v.fleeing) {
+        const dx = v.x - HQ.x, dz = v.z - HQ.z, dd = Math.hypot(dx, dz) || 1;
+        v.x += dx / dd * 5 * dt; v.z += dz / dd * 5 * dt;
+        if (dd > 75) { v.hp = 0; v.mesh.visible = false; }
+      } else {
+        const hd = dist2(v.x, v.z, HQ.x, HQ.z);
+        if (hd > 5) {
+          v.x += (HQ.x - v.x) / hd * fSpeed * dt; v.z += (HQ.z - v.z) / hd * fSpeed * dt;
+        } else {
+          v.stealT += dt;
+          if (v.stealT > 6) {
+            if (inv.wood > 0) { inv.wood--; toast("A raider pinched 1 wood! 🪵😤"); }
+            else if (inv.metal > 0) { inv.metal--; toast("A raider pinched 1 metal! ⚙️😤"); }
+            else toast("A raider found nothing to pinch!");
+            raidStole = true; v.fleeing = true; Sound.no();
+          }
+        }
+      }
+      const drainR = inv.shield ? 2.1 : 3;
+      if (pd < drainR && state === STATE.PLAY && player.invulnT <= 0) {
+        player.hp -= 9 * dt;
+        if (player.hp <= 0) faintPlayer();
+      }
+    } else if (v.kind === "follower") {
+      const aggro = pd < aggroR && !player.invisible && !(strandedT > 0);
+      if (aggro && pd > .5) {
+        v.x += (player.x - v.x) / pd * fSpeed * dt; v.z += (player.z - v.z) / pd * fSpeed * dt;
+      } else if (!aggro) {
+        v.wanderA += dt * .5;
+        v.x += Math.cos(v.wanderA) * dt * 1.2; v.z += Math.sin(v.wanderA * .8) * dt * 1.2;
+      }
+      /* stay out of HQ safe zone */
+      const hd = dist2(v.x, v.z, HQ.x, HQ.z);
+      if (hd < hqSafe) {
+        const dx = v.x - HQ.x, dz = v.z - HQ.z, dd = Math.hypot(dx, dz) || 1;
+        v.x = HQ.x + dx / dd * hqSafe; v.z = HQ.z + dz / dd * hqSafe;
+      }
+      if (inLake(v.x, v.z)) {
+        const dx = v.x - LAKE.x, dz = v.z - LAKE.z, dd = Math.hypot(dx, dz) || 1;
+        v.x = LAKE.x + dx / dd * (LAKE.r + 8); v.z = LAKE.z + dz / dd * (LAKE.r + 8);
+      }
+      /* the doc: a follower makes you faint if it gets too close */
+      const drainR = inv.shield ? 2.1 : 3;
+      if (pd < drainR && state === STATE.PLAY && player.invulnT <= 0) {
+        player.hp -= 9 * dt; Sound.muted || (Math.random() < dt * 2 && Sound.hurt());
+        if (player.hp <= 0) faintPlayer();
+      }
+    } else if (v.kind === "boss" && !bossDefeated) {
+      /* patrol a loop by the cave door */
+      v.patrolA += dt * .25;
+      const px = v.hx + Math.cos(v.patrolA) * 9, pz = v.hz + Math.sin(v.patrolA) * 9;
+      v.heading = Math.atan2(px - v.x, pz - v.z);
+      v.x = px; v.z = pz;
+      updateBossGaze(v, pd, dt);
+    }
+    setOnGround(v.mesh, v.x, v.z, terrainHeight);
+    faceCamera(v.mesh);
+  });
+  /* raid over? */
+  if (raidActive && raidersLeft === 0) {
+    raidActive = false;
+    for (let i = villains.length - 1; i >= 0; i--) {
+      if (villains[i].raid) { const m = villains[i].mesh; m.parent && m.parent.remove(m); villains.splice(i, 1); }
+    }
+    if (!raidStole) {
+      addStat("raids"); gainXp(25); inv.metal++; addStat("metals"); checkPlane(); Sound.fanfare();
+      toast("Raid defended — nothing was stolen! +1 metal ⚙️🏅", 6);
+    } else toast("The raid is over… they got away with some loot. Strengthen HQ!", 6);
+  }
+}
+function spawnRaid() {
+  raidActive = true; raidStole = false;
+  const n = Math.max(1, 2 + adventureLevel - hqLevel);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU + .5;
+    villains.push({
+      kind: "follower", id: "raider", raid: true, fleeing: false, stealT: 0,
+      x: HQ.x + Math.cos(a) * 55, z: HQ.z + Math.sin(a) * 55, hx: HQ.x, hz: HQ.z,
+      hp: 70 + 8 * (adventureLevel - 1), maxHp: 70 + 8 * (adventureLevel - 1),
+      wanderA: i, respawnT: 0, mesh: billboard("follower", 2.0, world),
+    });
+  }
+  Sound.roar(); Sound.squeal();
+  toast(`⚠️ HQ RAID! ${n} Follower${n > 1 ? "s are" : " is"} marching on the tent — defend it!`, 7);
+}
+/* the deeper you go, the meaner they get */
+function updateDepthFoes(dt) {
+  const spd = Math.min(4.2, 2.9 + .08 * depth), drainR = inv.shield ? 2.1 : 3;
+  depthFoes.forEach(v => {
+    if (v.hp <= 0) return;
+    const pd = dist2(v.x, v.z, player.x, player.z);
+    if (pd < 25 + depth && pd > .5 && !player.invisible) {
+      v.x += (player.x - v.x) / pd * spd * dt; v.z += (player.z - v.z) / pd * spd * dt;
+    } else {
+      v.wanderA += dt * .6;
+      v.x += Math.cos(v.wanderA) * dt; v.z += Math.sin(v.wanderA * .7) * dt;
+    }
+    if (pd < drainR && state === STATE.PLAY && player.invulnT <= 0) {
+      player.hp -= Math.min(14, 9 + depth * .5) * dt;
+      if (player.hp <= 0) faintPlayer();
+    }
+    setOnGround(v.mesh, v.x, v.z, depthGroundFn);
+    faceCamera(v.mesh);
+  });
+}
+
+/* the boss kills if you look each other in the eyes */
+function updateBossGaze(boss, pd, dt) {
+  let gazing = false;
+  if (pd < 42 && state === STATE.PLAY && inCave(player.x, player.z) === inCave(boss.x, boss.z)) {
+    const toBoss = Math.atan2(-(boss.x - player.x), -(boss.z - player.z));
+    let a1 = toBoss - yaw; while (a1 > Math.PI) a1 -= TAU; while (a1 < -Math.PI) a1 += TAU;
+    const playerLooking = Math.abs(a1) < .22;
+    const toPlayer = Math.atan2(player.x - boss.x, player.z - boss.z);
+    let a2 = toPlayer - boss.heading; while (a2 > Math.PI) a2 -= TAU; while (a2 < -Math.PI) a2 += TAU;
+    const bossLooking = Math.abs(a2) < .7;
+    gazing = playerLooking && bossLooking && !player.invisible;
+  }
+  if (gazing) {
+    if (vignetteT === 0) Sound.roar();
+    vignetteT = Math.min(1, vignetteT + dt / 2.2);
+    if (vignetteT >= 1) diePlayer("The Boss looked you right in the eyes!");
+  } else vignetteT = Math.max(0, vignetteT - dt * 1.6);
+  $("vignette").style.opacity = vignetteT;
+}
+
+function updateMummies(dt) {
+  mummies.forEach(m => {
+    if (m.hp <= 0) return;
+    const pd = dist2(m.x, m.z, player.x, player.z);
+    if (pd < 45 && pd > 2.2) {
+      m.x += (player.x - m.x) / pd * 2.6 * dt; m.z += (player.z - m.z) / pd * 2.6 * dt;
+    }
+    m.swipeCd -= dt;
+    if (pd < (m.big ? 3.4 : 2.6) && m.swipeCd <= 0 && state === STATE.PLAY && player.invulnT <= 0) {
+      m.swipeCd = 1.3;
+      player.hp -= Math.min(22, (m.big ? 16 : 10) + 2 * (adventureLevel - 1));
+      Sound.hurt();
+      if (player.hp <= 0) faintPlayer();
+    }
+    setOnGround(m.mesh, m.x, m.z, egyptHeight);
+    faceCamera(m.mesh);
+  });
+}
+
+/* ---------------- faint / death / stranding ---------------- */
+function faintPlayer() {
+  if (state !== STATE.PLAY) return;
+  player.hp = 0; state = STATE.FAINTED; faintCarryT = 9;
+  document.exitPointerLock && document.exitPointerLock();
+  $("faintTxt").innerHTML = inv.syringes > 0
+    ? "Press <b>N</b> to use a syringe from the medical kit!"
+    : "No syringes… your team is carrying you back to HQ!";
+  show("faint"); Sound.hurt();
+}
+function diePlayer(why) {
+  if (state !== STATE.PLAY) return;
+  state = STATE.DEAD; vignetteT = 0; $("vignette").style.opacity = 0;
+  document.exitPointerLock && document.exitPointerLock();
+  $("deadTxt").textContent = why;
+  show("dead"); Sound.roar();
+}
+function respawnAtBase(hpFrac) {
+  if (zone === "depth") exitToMountain();   /* the team hauls you up out of the cave */
+  if (zone === "egypt") { player.x = PLANE_SPOT.x; player.z = PLANE_SPOT.z + 4; }
+  else { player.x = HQ.x - 3; player.z = HQ.z + 8; }
+  player.hp = Math.max(10, Math.round(player.maxHp * hpFrac));
+  player.vy = 0; player.mode = "walk"; strandedT = 0; player.invulnT = 3;
+}
+
+/* ---------------- travel: Egypt & the cave depths ---------------- */
+function clearArrows() { arrows.forEach(a => a.mesh.parent && a.mesh.parent.remove(a.mesh)); arrows = []; }
+function moveMatesTo(sc) {
+  mates.forEach((m, i) => { m.x = player.x + 2 + i * 2; m.z = player.z + 3; sc.add(m.mesh); });
+}
+function enterEgypt(silent) {
+  zone = "egypt"; inEgypt = true; egyptUnlocked = true; planeEnt.here = true;
+  clearArrows();
+  if (!silent) rebuildEgypt();   /* fresh mummies for every holiday */
+  scene = egypt; groundFn = egyptHeight;
+  player.x = PLANE_SPOT.x; player.z = PLANE_SPOT.z + 4; player.vy = 0; player.mode = "walk";
+  moveMatesTo(egypt);
+  const planeEg = planeEnt.mesh; egypt.add(planeEg);
+  planeEg.position.set(PLANE_SPOT.x, egyptHeight(PLANE_SPOT.x, PLANE_SPOT.z) + 1.3, PLANE_SPOT.z);
+  if (!silent) {
+    Sound.plane();
+    toast(`EGYPT! Beat all ${mummies.length} MUMMIES, then grab the treasure at the pyramid!`, 7);
+    saveGame(true);
+  }
+}
+function leaveEgypt() {
+  zone = "mountain"; inEgypt = false;
+  clearArrows();
+  scene = world; groundFn = terrainHeight;
+  player.x = PLANE_SPOT.x; player.z = PLANE_SPOT.z + 4; player.vy = 0;
+  moveMatesTo(world);
+  world.add(planeEnt.mesh);
+  setOnGround(planeEnt.mesh, PLANE_SPOT.x, PLANE_SPOT.z, terrainHeight);
+  toast("Home sweet Mountain Side!");
+  saveGame(true);
+}
+function enterDepth(d, silent) {
+  depth = d;
+  buildDepth();
+  zone = "depth"; inEgypt = false;
+  clearArrows();
+  scene = depthScene; groundFn = depthGroundFn;
+  player.x = DEPTH_UP.x; player.z = DEPTH_UP.z - 3; player.vy = 0; player.mode = "walk"; player.diving = false;
+  moveMatesTo(depthScene);
+  if (!silent) {
+    stats.depth = Math.max(stats.depth || 0, depth);
+    addStat("depthVisits"); taskEvent("depth"); gainXp(8);
+    Sound.no(); Sound.squeal();
+    toast(`⛏️ Cave Depth ${depth}! ${depth >= 3 ? "It's getting really spooky down here…" : "Explore… and watch out!"}`, 6);
+  }
+}
+function exitToMountain() {
+  zone = "mountain"; inEgypt = false;
+  clearArrows();
+  scene = world; groundFn = terrainHeight;
+  player.x = HOLE_DOWN.x; player.z = HOLE_DOWN.z + 3.5; player.vy = 0;
+  moveMatesTo(world);
+  toast("Back up in the cave. Daylight is that way! ☀️");
+}
+function confettiBurst(el) {
+  el.querySelectorAll(".confetti").forEach(c => c.remove());
+  const glyphs = ["🎉", "⭐", "🍪", "✨", "🧃", "🏆"];
+  for (let i = 0; i < 26; i++) {
+    const s = document.createElement("div");
+    s.className = "confetti"; s.textContent = glyphs[i % glyphs.length];
+    s.style.left = (Math.random() * 100) + "vw";
+    s.style.animationDuration = (3 + Math.random() * 4) + "s";
+    s.style.animationDelay = (Math.random() * 3) + "s";
+    el.appendChild(s);
+  }
+}
+/* Beating Egypt doesn't end the game — it levels the whole adventure up! */
+function holidayVictory() {
+  treasureEnt.got = true; treasureEnt.spark.visible = false;
+  addStat("holidays"); gainXp(60);
+  adventureLevel++;
+  inv.syringes += 2; inv.plasters += 2; inv.cookies += 8; inv.juice += 4; inv.metal += 3;
+  addStat("metals", 3);
+  /* the world refreshes for the new level: metal veins refill, the boss returns meaner */
+  pickups.forEach(p => { if (p.type === "metal" && p.sc === world && p.got) respawnPickup(p); });
+  state = STATE.WIN;
+  document.exitPointerLock && document.exitPointerLock();
+  Sound.fanfare(); setTimeout(() => Sound.fanfare(), 700);
+  $("winTitle").textContent = (stats.holidays > 1 ? `HOLIDAY #${stats.holidays}: ` : "") + "YOU BEAT THE MUMMIES!!!";
+  $("winText").innerHTML =
+    `You found the pyramid treasure! 🏆 Trophy #${stats.holidays} is yours.<br>` +
+    `<b>Adventure Level ${adventureLevel}</b> begins — back home the metal veins have refilled, ` +
+    `the Boss is coming back meaner, and next holiday the mummies will be stronger${adventureLevel >= 2 ? " (and bring their KING!)" : ""}. ` +
+    `The adventure never ends!`;
+  show("win");
+  confettiBurst($("win"));
+  saveGame(true);
+}
+
+/* ---------------- sky, weather & world timers ---------------- */
+function updateMountainSky(dt) {
+  const cyc = DAY_LEN + NIGHT_LEN;
+  const night = (playTime % cyc) > DAY_LEN;
+  if (night !== wasNight) {
+    wasNight = night;
+    if (state === STATE.PLAY && zone === "mountain")
+      toast(night ? "🌙 Night falls… the Followers grow bolder!" : "☀️ Morning! The mountain wakes up.", 5);
+  }
+  dayNightK += ((night ? 1 : 0) - dayNightK) * Math.min(1, dt / 5);
+  const sky = new THREE.Color(0x9fd8ef).lerp(new THREE.Color(0x11142e), dayNightK);
+  world.background.copy(sky); world.fog.color.copy(sky);
+  if (ambient) ambient.intensity = lerp(1.15, .42, dayNightK);
+  sunLight.intensity = lerp(1.6, .3, dayNightK);
+  sun.material.opacity = 1 - dayNightK;
+  stars.material.opacity = dayNightK * .9;
+  moon.material.opacity = dayNightK;
+  /* rain showers, then a rainbow over the lake */
+  if (zone === "mountain" && state === STATE.PLAY) {
+    if (rainT <= 0 && rainbowT <= 0) {
+      nextRainT -= dt;
+      if (nextRainT <= 0) { rainT = 40; toast("☔ Rain! The berry bushes love it!", 5); }
+    }
+    if (rainT > 0) {
+      rainT -= dt;
+      if (rainT <= 0) {
+        rainbowT = 45; rainbow.visible = true; nextRainT = 260 + (xp % 120);
+        toast("🌈 A rainbow over the lake!", 6);
+      }
+    }
+    if (rainbowT > 0) { rainbowT -= dt; if (rainbowT <= 0) rainbow.visible = false; }
+  }
+  rain.visible = rainT > 0 && zone === "mountain";
+  if (rain.visible && player) {
+    const pos = rain.geometry.attributes.position;
+    for (let i = 0; i < 400; i++) {
+      const fall = (rainBase[i * 3 + 1] + playTime * 26) % 36;
+      pos.setXYZ(i, rainBase[i * 3], 26 - fall, rainBase[i * 3 + 2]);
+    }
+    pos.needsUpdate = true;
+    rain.position.set(player.x, player.y - 10, player.z);
+  }
+}
+function updateWorldTimers(dt) {
+  /* collected things grow back (berries even faster in the rain) */
+  const regrow = rainT > 0 ? 3 : 1;
+  pickups.forEach(p => {
+    if (p.got && p.respawn && p.sc === world) {
+      p.respawnT -= dt * (p.type === "berries" ? regrow : 1);
+      if (p.respawnT <= 0) respawnPickup(p);
+    }
+  });
+  /* HQ raids */
+  if (zone === "mountain" && !raidActive && playTime > 150) {
+    raidT -= dt;
+    if (raidT <= 0) { spawnRaid(); raidT = 260 + 120 * ((xp % 7) / 7); }
+  }
+  /* summit visits */
+  summitCd -= dt;
+  if (zone === "mountain" && summitCd <= 0 && dist2(player.x, player.z, MOUNTAIN.x, MOUNTAIN.z) < 14) {
+    summitCd = 60;
+    taskEvent("summit"); gainXp(5);
+    toast("⛰️ The summit! You can see the whole Mountain Side from up here!", 5);
+  }
+}
+
+/* ---------------- player update ---------------- */
+function updatePlayer(dt) {
+  const g = groundFn(player.x, player.z);
+  const swimming = zone === "mountain" && inLake(player.x, player.z);
+
+  /* movement input */
+  let mx = 0, mz = 0;
+  if (keys["KeyW"] || keys["ArrowUp"]) mz += 1;
+  if (keys["KeyS"] || keys["ArrowDown"]) mz -= 1;
+  if (keys["KeyA"] || keys["ArrowLeft"]) mx -= 1;
+  if (keys["KeyD"] || keys["ArrowRight"]) mx += 1;
+  mx += stickVx; mz -= stickVy;
+  const len = Math.hypot(mx, mz);
+  if (len > 1) { mx /= len; mz /= len; }
+
+  let speed = 8;
+  if (swimming) speed = player.id === "denzone" ? 8 : 4.5;
+  if (strandedT > 0) speed = 0;
+
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  player.x += (fx * mz + rx * mx) * speed * dt;
+  player.z += (fz * mz + rz * mx) * speed * dt;
+
+  /* world edge */
+  const dEdge = Math.hypot(player.x, player.z);
+  const maxR = zone === "egypt" ? 150 : zone === "depth" ? 42 : WORLD_R;
+  if (dEdge > maxR) { player.x *= maxR / dEdge; player.z *= maxR / dEdge; }
+
+  /* riddler gates block until solved */
+  if (zone === "mountain") riddlers.forEach(r => {
+    if (r.solved) return;
+    const d = dist2(player.x, player.z, r.x, r.z);
+    if (d < r.r - 2) {
+      const dx = player.x - r.x, dz = player.z - r.z, dd = Math.hypot(dx, dz) || 1;
+      player.x = r.x + dx / dd * (r.r - 2); player.z = r.z + dz / dd * (r.r - 2);
+    }
+  });
+
+  /* vertical movement */
+  const groundY = groundFn(player.x, player.z) + EYE;
+  if (swimming && player.mode !== "fly") {
+    if (player.mode !== "swim") { player.mode = "swim"; Sound.splash(); }
+    const surfY = WATER_Y + .45;
+    if (player.id === "denzone" && player.diving) {
+      const dir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
+      player.y += dir.y * speed * dt * mz;
+      if (keys["Space"]) player.y += 5 * dt;
+      player.y = clamp(player.y, groundFn(player.x, player.z) + .6, surfY);
+    } else {
+      player.y = surfY + Math.sin(playTime * 2.4) * .12;
+    }
+    $("tint").style.opacity = player.diving && player.y < WATER_Y - .3 ? 1 : 0;
+    player.vy = 0;
+  } else {
+    $("tint").style.opacity = 0;
+    if (player.mode === "swim") { player.mode = "walk"; player.diving = false; }
+    if (player.id === "sanc" && keys["Space"] && !swimming) {
+      /* fly! */
+      player.mode = "fly";
+      player.vy = Math.min(player.vy + 26 * dt, 7);
+    } else if (player.mode === "fly") {
+      player.vy = Math.max(player.vy - 18 * dt, -5);
+    } else if (consume("Space") && Math.abs(player.y - groundY) < .3) {
+      player.vy = 7.5;  // little hop
+    }
+    player.vy -= (player.mode === "fly" ? 0 : 20) * dt;
+    player.y += player.vy * dt;
+    if (player.y <= groundY) { player.y = groundY; player.vy = 0; if (player.mode === "fly") player.mode = "walk"; }
+    if (player.mode === "fly") player.y = Math.min(player.y, 90);
+  }
+
+  /* X — dive toggle (DenZone's power) */
+  if (consume("KeyX")) {
+    if (player.id === "denzone" && swimming) {
+      player.diving = !player.diving; Sound.splash();
+      toast(player.diving ? "Diving! DenZone can swim underwater! 🐟" : "Back to the surface!");
+    } else if (swimming) toast("Only DenZone can dive underwater!");
+    else toast("Find some water to swim in! (the lake is west)");
+  }
+
+  /* Tantion invisibility: stand still to vanish */
+  if (player.id === "tantion") {
+    if (len < .05) player.stillT += dt; else player.stillT = 0;
+    const wasInv = player.invisible;
+    player.invisible = player.stillT > 1;
+    if (player.invisible && !wasInv) toast("👻 Invisibility! The villains can't see you…");
+  }
+
+  /* topple rocks — climbing one strands you! */
+  player.rockGraceT -= dt;
+  if (zone === "mountain" && strandedT <= 0 && player.rockGraceT <= 0) {
+    for (const t of toppleRocks) {
+      if (dist2(player.x, player.z, t.x, t.z) < 2 && player.mode === "walk") {
+        strandedT = 8; player.stuckRock = t; Sound.no();
+        toast("Uh oh — a Topple-Rock! You're stuck until your team rescues you! 🪨", 6);
+        break;
+      }
+    }
+  }
+  if (strandedT > 0) {
+    strandedT -= dt;
+    camWobble = Math.sin(playTime * 14) * .04;
+    let nearMate = mates.some(m => m.state === "ok" && dist2(m.x, m.z, player.x, player.z) < 4);
+    if (groupMode === "rescue") strandedT -= dt;      // rescue mode = twice as fast
+    if (nearMate) strandedT -= dt * 2.5;
+    if (strandedT <= 0) {
+      /* the team pulls you off the rock, back toward HQ */
+      const r = player.stuckRock;
+      if (r) {
+        const dx = HQ.x - r.x, dz = HQ.z - r.z, dd = Math.hypot(dx, dz) || 1;
+        player.x = r.x + dx / dd * 5; player.z = r.z + dz / dd * 5;
+      }
+      player.rockGraceT = 4; player.stuckRock = null;
+      toast("Rescued! Watch out for Topple-Rocks!"); camWobble = 0;
+    }
+  } else camWobble = 0;
+
+  /* slow heal at HQ */
+  if (zone === "mountain" && dist2(player.x, player.z, HQ.x, HQ.z) < 9 && player.hp < player.maxHp)
+    player.hp = Math.min(player.maxHp, player.hp + 2.2 * dt);
+
+  player.shootCd -= dt;
+  player.invulnT -= dt;
+
+  camera.position.set(player.x, player.y, player.z);
+  camera.rotation.y = yaw + camWobble;
+  camera.rotation.x = pitch;
+}
+
+/* contextual prompt (what would a key do right now?) */
+function updatePrompt() {
+  promptTxt = "";
+  if (strandedT > 0) { promptTxt = "Stuck on a Topple-Rock! Your team is coming…"; return; }
+  const near = (x, z, r) => dist2(player.x, player.z, x, z) < r;
+  /* anywhere: pickups, fainted teammates */
+  for (const p of pickups) {
+    if (!p.got && p.sc === scene && near(p.x, p.z, 3)) {
+      promptTxt = p.type === "pearl" && player.y > WATER_Y - 1.2 ? "That pearl is deep — dive with X (DenZone)!" : "K — collect " + p.type;
+      return;
+    }
+  }
+  for (const m of mates) if (m.state === "fainted" && near(m.x, m.z, 4)) { promptTxt = `N — wake ${GOODIES[m.id].name} with a syringe 💉`; return; }
+  if (zone === "mountain") {
+    if (near(HOLE_DOWN.x, HOLE_DOWN.z, 4)) { promptTxt = "B — climb down the dark hole… ⛏️"; return; }
+    for (const r of riddlers) if (!r.solved && near(r.x, r.z, 8.5)) { promptTxt = "E — speak to the Riddler"; return; }
+    for (const r of riddlers) if (r.solved && near(r.x, r.z, 8.5)) { promptTxt = "E — riddle challenge (win a metal!)"; return; }
+    for (const b of botas) if (near(b.x, b.z, 5)) { promptTxt = b.favour === "trade" ? "E — trade with the Trader Bota" : "E — speak to the Bota-Block"; return; }
+    for (const b of botas) {
+      if (b.stage === 1 && b.qx !== undefined && near(b.qx, b.qz, 4) && !player.carrying) { promptTxt = "K — pick up"; return; }
+    }
+    if (planeEnt.here && near(PLANE_SPOT.x, PLANE_SPOT.z, 6)) { promptTxt = `E — fly to EGYPT! ✈️ (${FLIGHT_COST} ⚙️)`; return; }
+    if (near(CAMPFIRE.x, CAMPFIRE.z, 3.5) && !inv.torch) { promptTxt = "K — light a torch"; return; }
+    if (near(HQ.x, HQ.z, 7)) {
+      const c = hqCost();
+      promptTxt = `E — HQ (switch hero, badges) · K — strengthen (${c.wood}🪵+${c.metal}⚙️)`;
+      return;
+    }
+  } else if (zone === "egypt") {
+    if (mummies.every(m => m.hp <= 0) && !treasureEnt.got && near(treasureEnt.x, treasureEnt.z, 4)) { promptTxt = "K — grab the treasure! ✨"; return; }
+    if (near(PLANE_SPOT.x, PLANE_SPOT.z, 6)) { promptTxt = "E — fly home (free)"; return; }
+  } else if (zone === "depth") {
+    if (near(DEPTH_DOWN.x, DEPTH_DOWN.z, 4)) { promptTxt = `B — go even deeper… (Depth ${depth + 1})`; return; }
+    if (near(DEPTH_UP.x, DEPTH_UP.z, 4)) { promptTxt = depth <= 1 ? "B — climb up to the cave" : `B — climb up (Depth ${depth - 1})`; return; }
+  }
+  if (player.hp < player.maxHp * .5 && inv.plasters > 0) promptTxt = "N — use a plaster 🩹";
+}
+
+/* ---------------- main loop ---------------- */
+let last = 0;
+function loop(t) {
+  requestAnimationFrame(loop);
+  const dt = clamp((t - last) / 1000, 0, .05); last = t;
+
+  if (state === STATE.PLAY || state === STATE.FAINTED) playTime += dt;
+
+  /* timers */
+  if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) hide("toast"); }
+  if (compassTimer > 0) { compassTimer -= dt; if (compassTimer <= 0) hide("compass"); }
+  jinkyCd -= dt;
+
+  if (state === STATE.PLAY) {
+    const groupOpen = !$("groupMenu").classList.contains("hidden");
+    if (dialogOpen) {
+      if (consume("KeyE") || consume("Escape")) closeDialog();
+    } else if (groupOpen) {
+      if (consume("KeyJ") || consume("Escape")) {
+        hide("groupMenu");
+        if (!isTouch) canvas.requestPointerLock();
+      }
+    } else {
+      if (consume("KeyY")) shoot();
+      if (consume("KeyK")) tryCollect();
+      if (consume("KeyE")) trySpeak();
+      if (consume("KeyN")) useMedical();
+      if (consume("KeyB")) exploreKey();
+      if (consume("Digit1")) eatSnack("juice");
+      if (consume("Digit2")) eatSnack("cookie");
+      if (consume("KeyJ")) {
+        show("groupMenu");
+        document.exitPointerLock && document.exitPointerLock();
+        Sound.click();
+      }
+      if (consume("KeyP") || consume("Escape")) { saveGame(true); openTitle(); }
+      if (consume("KeyM")) { Sound.muted = !Sound.muted; toast(Sound.muted ? "Muted 🔇" : "Sound on 🔊"); }
+
+      updatePlayer(dt);
+      updatePrompt();
+      updateMates(dt);
+      if (zone === "egypt") updateMummies(dt);
+      else if (zone === "depth") updateDepthFoes(dt);
+      else updateVillains(dt);
+      updateArrows(dt);
+      ensureQuestMeshes();
+      updateBotas(dt);
+      updateWorldTimers(dt);
+    }
+    updateHud(dt);
+  } else if (state === STATE.FAINTED) {
+    if (consume("KeyN") && inv.syringes > 0) {
+      inv.syringes--; player.hp = Math.round(player.maxHp * .5); player.invulnT = 3;
+      hide("faint"); state = STATE.PLAY; Sound.heal();
+      toast("The syringe wakes you up! 💉");
+      if (!isTouch) canvas.requestPointerLock();
+    } else {
+      faintCarryT -= dt;
+      if (faintCarryT <= 0) {
+        respawnAtBase(.5); hide("faint"); state = STATE.PLAY;
+        toast("Your team carried you back to safety. 💚");
+        if (!isTouch) canvas.requestPointerLock();
+      }
+    }
+    if (consume("KeyC")) { respawnAtBase(1); hide("faint"); state = STATE.PLAY; toast("Back alive!"); if (!isTouch) canvas.requestPointerLock(); }
+  } else if (state === STATE.DEAD) {
+    if (consume("KeyC")) {
+      respawnAtBase(1); hide("dead"); state = STATE.PLAY;
+      toast("You came back alive! (C is magic like that)");
+      if (!isTouch) canvas.requestPointerLock();
+    }
+  } else if (state === STATE.TITLE) {
+    /* slow orbit of HQ behind the menu */
+    const a = t * .00006;
+    camera.position.set(HQ.x + Math.cos(a) * 26, terrainHeight(HQ.x, HQ.z) + 10, HQ.z + Math.sin(a) * 26);
+    camera.lookAt(HQ.x, terrainHeight(HQ.x, HQ.z) + 4, HQ.z);
+    if (consume("Enter")) $("btnPlay").click();
+  }
+
+  /* ambient animation */
+  if (water.visible) {
+    const pos = water.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i);
+      pos.setY(i, Math.sin(x * .3 + t * .0016) * .1 + Math.cos(z * .25 + t * .0013) * .08);
+    }
+    pos.needsUpdate = true;
+  }
+  flame.scale.y = 1 + Math.sin(t * .012) * .18;
+  fireLight.intensity = 7 + Math.sin(t * .017) * 2;
+  /* the sky lives (day/night, rain, rainbow) */
+  if (player) updateMountainSky(dt);
+  if (zone === "depth" && depthPlayerLight && player)
+    depthPlayerLight.position.set(player.x, player.y + 1.2, player.z);
+  /* butterflies flutter, clouds drift */
+  butterflies.forEach(b => {
+    const u = b.userData;
+    u.a += dt * u.sp * .3;
+    const bx = HQ.x + Math.cos(u.a) * u.r, bz = HQ.z + Math.sin(u.a) * u.r;
+    b.position.set(bx, terrainHeight(bx, bz) + u.h + Math.sin(t * .004 + u.ph) * .4, bz);
+    const flap = Math.sin(t * .02 + u.ph) * .9;
+    u.w1.rotation.y = flap; u.w2.rotation.y = -flap;
+    b.rotation.y = -u.a;
+  });
+  clouds.forEach((c, i) => {
+    c.position.x += dt * (1 + i * .25);
+    if (c.position.x > 220) c.position.x = -220;
+  });
+  /* sparkle twinkle */
+  if (pickups) pickups.forEach(p => {
+    if (!p.got && p.spark) p.spark.material.opacity = .5 + .5 * Math.sin(t * .006 + p.x);
+  });
+  if (treasureEnt && !treasureEnt.got) treasureEnt.spark.material.rotation = t * .002;
+
+  /* billboards that always need facing (pickups & npcs) */
+  if (state !== STATE.TITLE && pickups) {
+    pickups.forEach(p => { if (!p.got && p.mesh && p.mesh.userData.h) faceCamera(p.mesh); });
+    botas.forEach(b => { faceCamera(b.mesh); setOnGround(b.mesh, b.x, b.z, terrainHeight); });
+    riddlers.forEach(r => {
+      /* solved riddlers slide aside and sun themselves next to the path */
+      const ox = r.solved ? 5 : 0, oz = r.solved ? 3 : 0;
+      setOnGround(r.mesh, r.x + ox, r.z + oz, terrainHeight); faceCamera(r.mesh);
+    });
+    if (planeEnt.here || inEgypt) faceCamera(planeEnt.mesh);
+    Object.values(questMeshes).forEach(m => m.visible && faceCamera(m));
+  }
+
+  renderer.render(scene, camera);
+}
+
+/* group menu key handling is inside loop; opening it pauses world updates via hidden check */
+
+/* ---------------- boot ---------------- */
+loadAssets(() => {
+  hide("loading");
+  openTitle();
+  /* set up a pretty initial camera even before a game starts */
+  camera.position.set(HQ.x + 24, terrainHeight(HQ.x, HQ.z) + 10, HQ.z + 24);
+  camera.lookAt(HQ.x, terrainHeight(HQ.x, HQ.z) + 4, HQ.z);
+});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

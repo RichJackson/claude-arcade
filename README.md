@@ -54,6 +54,30 @@ Zap* and *Flawless* clears to *1000 Skeletons* and *10 Graveyards*. Your progres
 - **Controls (keyboard):** WASD / Arrows = move · P = pause · M = mute · 💾 button = save
 - **Controls (mobile):** drag anywhere to move with a virtual stick; on-screen buttons to save, open the menu and mute — touch controls appear automatically on phones & tablets.
 
+### ⛰️ Mountain Side
+A **never-ending first-person 3D adventure** (like Minecraft, but not blocky!) where
+every character is the **actual hand-drawn figure from the design sheet**, standing in
+the world like a paper cutout. Choose your hero — **Sanc** (flies!), **Mutian** (quick
+fire!), **Tantion** (invisibility!) or **DenZone** (dives underwater!) — while the
+computer controls the other three as your team (switch heroes anytime at HQ!). The
+mountain is alive: **day turns to night** (Followers get bolder in the dark!), rain
+brings **rainbows**, butterflies flutter through pine forests, berries regrow, and
+pearls hide at the bottom of the lake. Beware: **Followers** drain you up close, the
+purple **Boss** kills if you look each other in the eyes (and always comes back
+angrier), and Follower **raids** march on your tent! Solve endless riddles, do endless
+Bota-Block favours, trade with the Trader Bota, complete rotating **tasks**, level up
+your **Explorer Level**, and earn all **16 badges**.
+
+**The endless loop:** save **13 metals** to hire the plane to **Egypt** and beat the
+MUMMIES for a trophy — every holiday levels the world up: metal veins refill, mummies
+multiply (the **MUMMY KING** appears from level 2!), and the cave's dark hole goes
+**deeper and deeper forever** — Depth 1, 2, 3… each spookier and more dangerous than
+the last. The adventure never ends!
+
+- **Play:** https://richjackson.github.io/claude-arcade/mountain-side/mountain-side.html
+- **Controls (keyboard):** WASD = move · mouse = look · Y = shoot · K = collect · E = speak / trade / HQ · N = medical kit · J = group decision · B = explore & climb into cave holes · X = dive (DenZone) · Space = jump / fly (Sanc) · C = come back alive · 1/2 = drink juice / eat cookie · P = pause · M = mute
+- **Controls (mobile):** left side of screen = move stick, right side = look, on-screen buttons for shoot/collect/speak/med kit/group/explore — touch controls appear automatically.
+
 ## Running locally
 
 Every game is a self-contained `.html` file. Just open it in a browser, or serve the folder:
